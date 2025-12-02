@@ -36,7 +36,7 @@ services:
     container_name: midpainel-postgres
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     environment:
       POSTGRES_USER: ${DATABASE_USER}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
@@ -56,7 +56,7 @@ services:
     container_name: midpainel-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
     command: >
       sh -c "if [ -n \"${REDIS_PASSWORD}\" ]; then
         redis-server --requirepass ${REDIS_PASSWORD};
