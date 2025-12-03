@@ -29,10 +29,16 @@ export abstract class BaseProvider implements IProvider {
         if (attempt > 0) {
           const delay = retryStrategy.delays[attempt - 1] || retryStrategy.delays[retryStrategy.delays.length - 1];
           this.logger.warn(
-            `Retry attempt ${attempt}/${retryStrategy.maxRetries} after ${delay}ms`,
+            `🔄 Retry attempt ${attempt}/${retryStrategy.maxRetries} after ${delay}ms`,
             context
           );
           await this.sleep(delay);
+        }
+        
+        if (attempt === 0) {
+          this.logger.log(`🚀 Tentativa ${attempt + 1}/${retryStrategy.maxRetries + 1}`);
+        } else {
+          this.logger.log(`🔄 Tentativa ${attempt + 1}/${retryStrategy.maxRetries + 1}`);
         }
         
         return await fn();
@@ -40,16 +46,33 @@ export abstract class BaseProvider implements IProvider {
         lastError = error;
         const errorType = this.classifyError(error);
         
+        // Log detalhado do erro
+        const errorDetails = error.code 
+          ? `${error.message} (code: ${error.code})` 
+          : error.message;
+        
+        if (error.response) {
+          this.logger.error(`❌ Erro HTTP ${error.response.status}: ${errorDetails}`);
+          this.logger.error(`   URL: ${error.config?.url || 'N/A'}`);
+          this.logger.error(`   Response: ${JSON.stringify(error.response.data)}`);
+        } else if (error.request) {
+          this.logger.error(`❌ Erro de rede: ${errorDetails}`);
+          this.logger.error(`   URL tentada: ${error.config?.url || 'N/A'}`);
+          this.logger.error(`   Código: ${error.code || 'N/A'}`);
+        } else {
+          this.logger.error(`❌ Erro: ${errorDetails}`);
+        }
+        
         // Não retry para erros 4xx ou validação
         if (errorType === ErrorType.API_ERROR_4XX || errorType === ErrorType.VALIDATION_ERROR) {
-          this.logger.error(`Non-retryable error: ${error.message}`, error.stack, context);
+          this.logger.error(`⛔ Erro não retryable: ${error.message}`, error.stack, context);
           throw error;
         }
         
         // Se ainda temos tentativas, continua
         if (attempt < retryStrategy.maxRetries) {
           this.logger.warn(
-            `Attempt ${attempt + 1} failed: ${error.message}. Will retry.`,
+            `⚠️ Attempt ${attempt + 1} failed: ${errorDetails}. Will retry.`,
             context
           );
           continue;
@@ -59,8 +82,11 @@ export abstract class BaseProvider implements IProvider {
     
     // Todas as tentativas falharam
     if (lastError) {
+      const errorDetails = lastError.code 
+        ? `${lastError.message} (code: ${lastError.code})` 
+        : lastError.message;
       this.logger.error(
-        `All ${retryStrategy.maxRetries + 1} attempts failed. Last error: ${lastError.message}`,
+        `All ${retryStrategy.maxRetries + 1} attempts failed. Last error: ${errorDetails}`,
         lastError.stack,
         context
       );
@@ -72,7 +98,27 @@ export abstract class BaseProvider implements IProvider {
   }
 
   protected classifyError(error: any): ErrorType {
-    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+    // Erros de conexão de rede
+    if (
+      error.code === 'ECONNREFUSED' || 
+      error.code === 'ETIMEDOUT' || 
+      error.code === 'ENOTFOUND' ||
+      error.code === 'ECONNRESET' ||
+      error.code === 'EPIPE' ||
+      error.code === 'EAI_AGAIN'
+    ) {
+      return ErrorType.NETWORK_ERROR;
+    }
+    
+    // Erros SSL/TLS
+    if (
+      error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+      error.code === 'CERT_HAS_EXPIRED' ||
+      error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
+      error.message?.includes('certificate') ||
+      error.message?.includes('SSL') ||
+      error.message?.includes('TLS')
+    ) {
       return ErrorType.NETWORK_ERROR;
     }
     

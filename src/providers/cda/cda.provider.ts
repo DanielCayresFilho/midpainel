@@ -71,9 +71,20 @@ export class CdaProvider extends BaseProvider {
       mensagens: linhas,
     };
 
+    // Log detalhado para debug
+    const apiKeyMasked = credentials.api_key 
+      ? `${credentials.api_key.substring(0, 8)}...${credentials.api_key.substring(credentials.api_key.length - 4)}`
+      : 'NÃO FORNECIDA';
+    
+    this.logger.log(`🌐 Tentando enviar para API CDA:`);
+    this.logger.log(`   URL: ${credentials.url}`);
+    this.logger.log(`   API Key: ${apiKeyMasked}`);
+    this.logger.log(`   Payload: ${JSON.stringify({ ...payload, chave_api: apiKeyMasked })}`);
+
     try {
       const response = await this.executeWithRetry(
         async () => {
+          this.logger.debug(`📤 Enviando POST para: ${credentials.url}`);
           const result = await firstValueFrom(
             this.httpService.post(credentials.url as string, payload, {
               headers: {
@@ -82,6 +93,7 @@ export class CdaProvider extends BaseProvider {
               timeout: 120000, // 120 segundos
             }),
           );
+          this.logger.debug(`✅ Resposta recebida: Status ${result.status}`);
           return result;
         },
         this.getRetryStrategy(),
