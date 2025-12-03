@@ -52,15 +52,25 @@ export abstract class BaseProvider implements IProvider {
           : error.message;
         
         if (error.response) {
+          // Erro HTTP - API respondeu mas com erro (400, 401, 500, etc)
           this.logger.error(`❌ Erro HTTP ${error.response.status}: ${errorDetails}`);
           this.logger.error(`   URL: ${error.config?.url || 'N/A'}`);
-          this.logger.error(`   Response: ${JSON.stringify(error.response.data)}`);
+          this.logger.error(`   Response Body: ${JSON.stringify(error.response.data)}`);
+          this.logger.error(`   Response Headers: ${JSON.stringify(error.response.headers)}`);
         } else if (error.request) {
-          this.logger.error(`❌ Erro de rede: ${errorDetails}`);
+          // Erro de rede - requisição foi feita mas não houve resposta (timeout, conexão recusada, etc)
+          this.logger.error(`❌ Erro de rede (sem resposta do servidor): ${errorDetails}`);
           this.logger.error(`   URL tentada: ${error.config?.url || 'N/A'}`);
           this.logger.error(`   Código: ${error.code || 'N/A'}`);
+          this.logger.error(`   Request feito: ${error.request ? 'Sim' : 'Não'}`);
+          
+          if (error.code === 'ETIMEDOUT') {
+            this.logger.error(`   ⚠️ TIMEOUT: A requisição demorou mais que o timeout configurado`);
+            this.logger.error(`   💡 Isso pode indicar: API lenta, problema de rede, ou firewall bloqueando`);
+          }
         } else {
-          this.logger.error(`❌ Erro: ${errorDetails}`);
+          // Erro antes de fazer a requisição (configuração, etc)
+          this.logger.error(`❌ Erro na configuração: ${errorDetails}`);
         }
         
         // Não retry para erros 4xx ou validação

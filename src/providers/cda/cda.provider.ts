@@ -85,16 +85,48 @@ export class CdaProvider extends BaseProvider {
       const response = await this.executeWithRetry(
         async () => {
           this.logger.debug(`📤 Enviando POST para: ${credentials.url}`);
-          const result = await firstValueFrom(
-            this.httpService.post(credentials.url as string, payload, {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              timeout: 120000, // 120 segundos
-            }),
-          );
-          this.logger.debug(`✅ Resposta recebida: Status ${result.status}`);
-          return result;
+          const startTime = Date.now();
+          
+          try {
+            const result = await firstValueFrom(
+              this.httpService.post(credentials.url as string, payload, {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                timeout: 30000, // 30 segundos (mais realista)
+              }),
+            );
+            const duration = Date.now() - startTime;
+            this.logger.debug(`✅ Resposta recebida: Status ${result.status} (${duration}ms)`);
+            return result;
+          } catch (error: any) {
+            const duration = Date.now() - startTime;
+            
+            // Log detalhado do erro
+            if (error.response) {
+              // Erro HTTP (400, 401, 500, etc)
+              this.logger.error(`❌ Erro HTTP ${error.response.status} após ${duration}ms`);
+              this.logger.error(`   URL: ${error.config?.url || 'N/A'}`);
+              this.logger.error(`   Response: ${JSON.stringify(error.response.data)}`);
+              this.logger.error(`   Headers: ${JSON.stringify(error.response.headers)}`);
+            } else if (error.request) {
+              // Erro de rede (timeout, conexão recusada, etc)
+              this.logger.error(`❌ Erro de rede após ${duration}ms`);
+              this.logger.error(`   URL tentada: ${error.config?.url || 'N/A'}`);
+              this.logger.error(`   Código: ${error.code || 'N/A'}`);
+              this.logger.error(`   Mensagem: ${error.message}`);
+              
+              // Se for timeout, mostra o timeout configurado
+              if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+                this.logger.error(`   ⏱️ Timeout configurado: 30000ms`);
+              }
+            } else {
+              // Outro tipo de erro
+              this.logger.error(`❌ Erro: ${error.message}`);
+            }
+            
+            throw error;
+          }
         },
         this.getRetryStrategy(),
         {
