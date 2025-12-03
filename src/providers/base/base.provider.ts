@@ -82,8 +82,9 @@ export abstract class BaseProvider implements IProvider {
     
     // Todas as tentativas falharam
     if (lastError) {
-      const errorDetails = lastError.code 
-        ? `${lastError.message} (code: ${lastError.code})` 
+      const errorWithCode = lastError as any;
+      const errorDetails = errorWithCode.code 
+        ? `${lastError.message} (code: ${errorWithCode.code})` 
         : lastError.message;
       this.logger.error(
         `All ${retryStrategy.maxRetries + 1} attempts failed. Last error: ${errorDetails}`,
