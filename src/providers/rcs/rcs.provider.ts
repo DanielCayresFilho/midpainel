@@ -175,7 +175,7 @@ export class RcsProvider extends BaseProvider {
     const messages = data
       .filter((dado) => dado.telefone && dado.mensagem)
       .map((dado) => ({
-        phone: dado.telefone,
+        phone: this.normalizePhoneNumber(dado.telefone),
         document: dado.idcob_contrato || '',
         message: dado.mensagem,
         date: now.toISOString().replace('T', ' ').substring(0, 19),
@@ -201,7 +201,7 @@ export class RcsProvider extends BaseProvider {
     const messages = data
       .filter((dado) => dado.telefone)
       .map((dado) => ({
-        phone: dado.telefone,
+        phone: this.normalizePhoneNumber(dado.telefone),
         document: dado.idcob_contrato || '',
         template_code: templateConfig.template_code,
         variables: this.extractTemplateVariables(dado),
@@ -228,7 +228,7 @@ export class RcsProvider extends BaseProvider {
     const messages = data
       .filter((dado) => dado.telefone)
       .map((dado) => ({
-        phone: dado.telefone,
+        phone: this.normalizePhoneNumber(dado.telefone),
         document: dado.idcob_contrato || '',
         message: dado.mensagem || '',
         file_url: templateConfig.file_url,

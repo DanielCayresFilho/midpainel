@@ -58,7 +58,11 @@ export class CdaProvider extends BaseProvider {
       const last_cpf = dado.cpf_cnpj
         ? dado.cpf_cnpj.slice(-2)
         : '';
-      return `${dado.idgis_ambiente};55${dado.telefone};${dado.nome};${dado.cpf_cnpj};${last_cpf}`;
+      
+      // Normaliza o telefone usando função helper
+      const telefone_normalizado = this.normalizePhoneNumber(dado.telefone);
+      
+      return `${dado.idgis_ambiente};${telefone_normalizado};${dado.nome};${dado.cpf_cnpj};${last_cpf}`;
     });
 
     const payload = {

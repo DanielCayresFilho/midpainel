@@ -53,7 +53,7 @@ export class NoahProvider extends BaseProvider {
     const payload = {
       name: `campanha_${Date.now()}`,
       data: data.map((dado) => ({
-        telefone: dado.telefone,
+        telefone: this.normalizePhoneNumber(dado.telefone),
         nome: dado.nome,
         idgis_ambiente: dado.idgis_ambiente,
         idcob_contrato: dado.idcob_contrato,

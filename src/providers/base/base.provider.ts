@@ -154,6 +154,29 @@ export abstract class BaseProvider implements IProvider {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  /**
+   * Normaliza número de telefone brasileiro
+   * - Remove caracteres especiais (espaços, parênteses, traços)
+   * - Garante que tenha código do país (55) no início
+   * - Evita duplicação do código 55
+   */
+  protected normalizePhoneNumber(telefone: string): string {
+    if (!telefone) {
+      return telefone;
+    }
+
+    // Remove caracteres especiais
+    let normalized = telefone.trim().replace(/[\s\(\)\-]/g, '');
+
+    // Se já começa com 55, mantém como está
+    // Se não começa com 55, adiciona 55 no início
+    if (!normalized.startsWith('55')) {
+      normalized = `55${normalized}`;
+    }
+
+    return normalized;
+  }
+
   protected handleError(error: any, context?: { agendamentoId?: string; provider?: string }): ProviderResponse {
     const errorType = this.classifyError(error);
     const errorMessage = error.response?.data?.message || error.message || 'Unknown error';

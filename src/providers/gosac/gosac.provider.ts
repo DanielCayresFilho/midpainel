@@ -57,7 +57,7 @@ export class GosacProvider extends BaseProvider {
       .filter((dado) => dado.nome && dado.telefone)
       .map((dado) => ({
         name: dado.nome,
-        number: dado.telefone,
+        number: this.normalizePhoneNumber(dado.telefone),
         hasWhatsapp: true,
       }));
 

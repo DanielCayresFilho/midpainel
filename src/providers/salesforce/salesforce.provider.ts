@@ -104,7 +104,7 @@ export class SalesforceProvider extends BaseProvider {
     // PASSO 2: Enviar contatos
     const contacts = data.map((dado) => ({
       attributes: { type: 'Contact' },
-      MobilePhone: dado.telefone,
+      MobilePhone: this.normalizePhoneNumber(dado.telefone),
       LastName: dado.nome,
       CPF_CNPJ__c: dado.cpf_cnpj || '12312312312',
       Operacao__c: operacao,
