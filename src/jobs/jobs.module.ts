@@ -2,8 +2,16 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { bullmqConfig, queueNames } from '../config/bullmq.config';
 import { DispatchCampaignProcessor } from './dispatch-campaign.processor';
+import { CdaSendProcessor } from './providers/cda-send.processor';
+import { GosacSendProcessor } from './providers/gosac-send.processor';
+import { NoahSendProcessor } from './providers/noah-send.processor';
+import { RcsSendProcessor } from './providers/rcs-send.processor';
+import { SalesforceSendProcessor } from './providers/salesforce-send.processor';
 import { CampaignsModule } from '../campaigns/campaigns.module';
+import { ProvidersModule } from '../providers/providers.module';
+import { WebhookModule } from '../webhook/webhook.module';
 import { HttpModule } from '@nestjs/axios';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
@@ -19,9 +27,19 @@ import { HttpModule } from '@nestjs/axios';
       { name: queueNames.SALESFORCE_MKC },
     ),
     CampaignsModule,
+    ProvidersModule,
+    WebhookModule,
+    PrismaModule,
     HttpModule,
   ],
-  providers: [DispatchCampaignProcessor],
+  providers: [
+    DispatchCampaignProcessor,
+    CdaSendProcessor,
+    GosacSendProcessor,
+    NoahSendProcessor,
+    RcsSendProcessor,
+    SalesforceSendProcessor,
+  ],
   exports: [BullModule],
 })
 export class JobsModule {}

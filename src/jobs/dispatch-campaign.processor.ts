@@ -51,6 +51,10 @@ export class DispatchCampaignProcessor extends WorkerHost {
       );
       this.logger.log(`Campaign created: ${campaign.id}`);
 
+      // 5. Criar mensagens no banco
+      await this.campaignsService.createCampaignMessages(campaign.id, data);
+      this.logger.log(`Created ${data.length} campaign messages`);
+
       // 5. Adicionar job específico do provider
       const providerQueue = this.getProviderQueue(provider);
       await providerQueue.add(

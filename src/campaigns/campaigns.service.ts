@@ -27,6 +27,21 @@ export class CampaignsService {
     });
   }
 
+  async createCampaignMessages(campaignId: string, data: CampaignData[]) {
+    if (data.length === 0) {
+      return;
+    }
+
+    await this.prisma.campaignMessage.createMany({
+      data: data.map((item) => ({
+        campaignId,
+        phone: item.telefone,
+        name: item.nome || null,
+        status: 'PENDING',
+      })),
+    });
+  }
+
   async getCampaignByAgendamentoId(agendamentoId: string) {
     return this.prisma.campaign.findUnique({
       where: { agendamentoId },
