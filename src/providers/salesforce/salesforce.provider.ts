@@ -68,17 +68,23 @@ export class SalesforceProvider extends BaseProvider {
     try {
       const tokenResponse = await this.executeWithRetry(
         async () => {
+          // Salesforce OAuth2 requer application/x-www-form-urlencoded
+          const params = new URLSearchParams();
+          params.append('grant_type', 'password');
+          params.append('client_id', credentials.client_id as string);
+          params.append('client_secret', credentials.client_secret as string);
+          params.append('username', credentials.username as string);
+          params.append('password', credentials.password as string);
+
           const result = await firstValueFrom(
             this.httpService.post(
               credentials.token_url as string,
+              params.toString(),
               {
-                grant_type: 'password',
-                client_id: credentials.client_id,
-                client_secret: credentials.client_secret,
-                username: credentials.username,
-                password: credentials.password,
-              },
-              {
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  Accept: 'application/json',
+                },
                 timeout: 30000,
               },
             ),
