@@ -99,6 +99,7 @@ export abstract class BaseProviderProcessor extends WorkerHost {
           success: true,
           campaignId,
           totalMessages: data.length,
+          data: result.data, // Inclui dados retornados pelo provider (ex: automationId do Salesforce)
         };
       } else {
         // Atualiza campanha como FAILED

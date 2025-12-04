@@ -7,6 +7,7 @@ import { GosacSendProcessor } from './providers/gosac-send.processor';
 import { NoahSendProcessor } from './providers/noah-send.processor';
 import { RcsSendProcessor } from './providers/rcs-send.processor';
 import { SalesforceSendProcessor } from './providers/salesforce-send.processor';
+import { SalesforceMkcProcessor } from './providers/salesforce-mkc.processor';
 import { CampaignsModule } from '../campaigns/campaigns.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { WebhookModule } from '../webhook/webhook.module';
@@ -39,6 +40,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     NoahSendProcessor,
     RcsSendProcessor,
     SalesforceSendProcessor,
+    SalesforceMkcProcessor,
   ],
   exports: [BullModule],
 })
