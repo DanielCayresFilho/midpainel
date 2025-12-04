@@ -9,7 +9,8 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Install ALL dependencies (needed for build)
-RUN pnpm install --frozen-lockfile
+# Force install devDependencies even if NODE_ENV=production
+RUN NODE_ENV=development pnpm install --frozen-lockfile
 
 # Copy Prisma schema
 COPY prisma ./prisma
