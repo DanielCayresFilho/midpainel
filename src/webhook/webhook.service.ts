@@ -5,7 +5,7 @@ import { wordpressConfig } from '../config/wordpress.config';
 
 export interface WebhookStatusPayload {
   agendamento_id: string;
-  status: 'enviado' | 'erro_envio' | 'erro_credenciais' | 'erro_validacao' | 'processando';
+  status: 'enviado' | 'erro_envio' | 'erro_credenciais' | 'erro_validacao' | 'processando' | 'mkc_executado' | 'mkc_erro';
   resposta_api?: string;
   data_disparo?: string;
   total_enviados?: number;
