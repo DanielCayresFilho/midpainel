@@ -12,6 +12,13 @@ export interface ProviderSendJobData {
   credentials: any;
 }
 
+export interface ProcessResult {
+  success: boolean;
+  campaignId: string;
+  totalMessages: number;
+  data?: any;
+}
+
 export abstract class BaseProviderProcessor extends WorkerHost {
   protected readonly logger: Logger;
   protected abstract providerName: string;
@@ -26,7 +33,7 @@ export abstract class BaseProviderProcessor extends WorkerHost {
     this.logger = new Logger(loggerName);
   }
 
-  async process(job: Job<ProviderSendJobData>) {
+  async process(job: Job<ProviderSendJobData>): Promise<ProcessResult> {
     const { campaignId, agendamentoId, data, credentials } = job.data;
     
     this.logger.log(`Processing ${this.providerName} send for campaign: ${campaignId} (${agendamentoId})`);

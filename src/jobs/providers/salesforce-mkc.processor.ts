@@ -25,7 +25,7 @@ export class SalesforceMkcProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<SalesforceMkcJobData>) {
+  async process(job: Job<SalesforceMkcJobData>): Promise<any> {
     const { campaignId, agendamentoId, automationId, credentials } = job.data;
     
     this.logger.log(`🚀 Executando Marketing Cloud para automação: ${automationId}`);

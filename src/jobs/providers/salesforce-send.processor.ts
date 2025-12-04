@@ -2,7 +2,7 @@ import { Processor, InjectQueue } from '@nestjs/bullmq';
 import { SalesforceProvider } from '../../providers/salesforce/salesforce.provider';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WebhookService } from '../../webhook/webhook.service';
-import { BaseProviderProcessor, ProviderSendJobData } from './base-provider.processor';
+import { BaseProviderProcessor, ProviderSendJobData, ProcessResult } from './base-provider.processor';
 import { queueNames } from '../../config/bullmq.config';
 import { Job, Queue } from 'bullmq';
 
@@ -19,7 +19,7 @@ export class SalesforceSendProcessor extends BaseProviderProcessor {
     super(provider, prisma, webhookService, SalesforceSendProcessor.name);
   }
 
-  async process(job: Job<ProviderSendJobData>) {
+  async process(job: Job<ProviderSendJobData>): Promise<ProcessResult> {
     const result = await super.process(job);
     
     // Se o envio foi bem-sucedido e retornou automationId, agenda o Marketing Cloud
