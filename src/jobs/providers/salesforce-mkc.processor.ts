@@ -38,18 +38,6 @@ export class SalesforceMkcProcessor extends WorkerHost {
       if (result.success) {
         this.logger.log(`✅ Marketing Cloud executado com sucesso para ${automationId}`);
         
-        // Atualiza a campanha com informação do MKC
-        await this.prisma.campaign.update({
-          where: { id: campaignId },
-          data: {
-            metadata: {
-              mkcExecuted: true,
-              mkcExecutedAt: new Date().toISOString(),
-              automationId,
-            },
-          },
-        });
-
         // Envia webhook para WordPress informando que o MKC foi executado
         await this.webhookService.sendStatusUpdate({
           agendamento_id: agendamentoId,
