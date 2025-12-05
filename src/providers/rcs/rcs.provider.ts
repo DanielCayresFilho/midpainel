@@ -9,17 +9,15 @@ import {
   RetryStrategy,
 } from '../base/provider.interface';
 
-interface RcsTemplateConfig {
-  template_code?: string;
-  has_media?: boolean;
-  file_url?: string;
-  file_type?: string;
-  file_name?: string;
-  fallback_sms?: string;
-}
-
+/**
+ * Provider para integração com API CromosApp RCS
+ * Documentação: Manual de Integração CromosApp com CRM - Sistema CromosApp RCS
+ * URL: https://cromosapp.com.br/api/importarcs/importarRcsCampanhaAPI
+ */
 @Injectable()
 export class RcsProvider extends BaseProvider {
+  private readonly API_URL = 'https://cromosapp.com.br/api/importarcs/importarRcsCampanhaAPI';
+
   constructor(httpService: HttpService) {
     super(httpService, 'RcsProvider');
   }
@@ -27,30 +25,29 @@ export class RcsProvider extends BaseProvider {
   getRetryStrategy(): RetryStrategy {
     return {
       maxRetries: 3,
-      delays: [1000, 2000, 5000],
+      delays: [1000, 2000, 5000], // 1s, 2s, 5s
     };
   }
 
   validateCredentials(credentials: ProviderCredentials): boolean {
     return !!(
-      credentials.base_url &&
-      credentials.token &&
-      credentials.broker_code &&
-      credentials.customer_code &&
-      typeof credentials.base_url === 'string' &&
-      typeof credentials.token === 'string'
+      credentials.chave_api &&
+      credentials.codigo_equipe &&
+      credentials.codigo_usuario &&
+      typeof credentials.chave_api === 'string' &&
+      typeof credentials.codigo_equipe === 'string' &&
+      typeof credentials.codigo_usuario === 'string'
     );
   }
 
   async send(
     data: CampaignData[],
     credentials: ProviderCredentials,
-    templateConfig?: RcsTemplateConfig,
   ): Promise<ProviderResponse> {
     if (!this.validateCredentials(credentials)) {
       return {
         success: false,
-        error: 'Credenciais inválidas: base_url, token, broker_code e customer_code são obrigatórias',
+        error: 'Credenciais inválidas: chave_api, codigo_equipe e codigo_usuario são obrigatórias',
       };
     }
 
@@ -61,201 +58,165 @@ export class RcsProvider extends BaseProvider {
       };
     }
 
-    // Determina o tipo de envio e monta o payload
-    let dispatchData: {
-      type: string;
-      endpoint: string;
-      payload: any;
-    };
+    // Extrai informações comuns da primeira mensagem
+    const mensagem_corpo = data[0].mensagem || '';
+    const idgis_regua = data[0].idgis_ambiente || credentials.codigo_equipe;
 
-    if (templateConfig?.template_code) {
-      // Envio com TEMPLATE
-      dispatchData = this.prepareTemplateDispatch(
-        data,
-        credentials,
-        templateConfig,
-      );
-    } else if (templateConfig?.has_media && templateConfig?.file_url) {
-      // Envio com DOCUMENTO/IMAGEM
-      dispatchData = this.prepareDocumentDispatch(
-        data,
-        credentials,
-        templateConfig,
-      );
-    } else {
-      // Envio de TEXTO SIMPLES
-      dispatchData = this.prepareTextDispatch(data, credentials);
-    }
+    // Formata as mensagens no formato CSV conforme o manual
+    // Formato: "1;5541999998888;FULANO;TAG2;TAG3;TAG4;..."
+    // - Primeira coluna: sempre "1"
+    // - Segunda coluna: telefone com 55 na frente
+    // - Terceira coluna: nome do cliente (TAG1)
+    // - Próximas colunas: conforme uso (TAG2, TAG3, etc)
+    const mensagens = data
+      .filter((dado) => dado.telefone)
+      .map((dado) => {
+        const telefone_normalizado = this.normalizePhoneNumber(dado.telefone);
+        const nome = dado.nome || '';
+        
+        // Monta a linha CSV: 1;telefone;nome;TAG2;TAG3;...
+        // TAG2 pode ser idcob_contrato, TAG3 pode ser cpf_cnpj, etc
+        const campos = [
+          '1', // Primeira coluna fixa
+          telefone_normalizado, // Telefone com 55
+          nome, // Nome (TAG1)
+        ];
 
-    if (dispatchData.payload.messages.length === 0) {
+        // Adiciona campos adicionais se existirem
+        if (dado.idcob_contrato) {
+          campos.push(dado.idcob_contrato);
+        }
+        if (dado.cpf_cnpj) {
+          // Remove pontos e traços do CPF conforme o manual
+          campos.push(dado.cpf_cnpj.replace(/[.\-]/g, ''));
+        }
+
+        return campos.join(';');
+      });
+
+    if (mensagens.length === 0) {
       return {
         success: false,
         error: 'Nenhuma mensagem válida para enviar',
       };
     }
 
-    // Limita a 1000 mensagens por requisição
-    if (dispatchData.payload.messages.length > 1000) {
-      dispatchData.payload.messages = dispatchData.payload.messages.slice(
-        0,
-        1000,
-      );
-    }
-
-    const fullUrl = `${credentials.base_url}${dispatchData.endpoint}`;
-    const now = new Date();
-
-    // Retorna sucesso, mas indica que precisa agendar o envio (15 segundos depois)
-    return {
-      success: true,
-      message: 'Envio RCS agendado para 15 segundos',
-      data: {
-        type: dispatchData.type,
-        url: fullUrl,
-        payload: dispatchData.payload,
-        scheduledAt: new Date(Date.now() + 15000).toISOString(), // 15 segundos
-        totalMessages: dispatchData.payload.messages.length,
-      },
+    // Monta o payload conforme o manual
+    const payload: any = {
+      chave_api: credentials.chave_api,
+      codigo_equipe: credentials.codigo_equipe,
+      codigo_usuario: credentials.codigo_usuario,
+      nome: `campanha_${idgis_regua}_${Date.now()}`,
+      corpo_mensagem: mensagem_corpo,
+      mensagens: mensagens,
     };
-  }
 
-  /**
-   * Executa o envio RCS (chamado após 15 segundos)
-   */
-  async executeDispatch(
-    endpoint: string,
-    payload: any,
-    credentials: ProviderCredentials,
-  ): Promise<ProviderResponse> {
-    if (!this.validateCredentials(credentials)) {
-      return {
-        success: false,
-        error: 'Credenciais inválidas',
-      };
+    // Campos opcionais
+    if (credentials.ativo !== undefined) {
+      payload.ativo = credentials.ativo === true || credentials.ativo === 'true';
     }
 
-    const fullUrl = `${credentials.base_url}${endpoint}`;
+    if (credentials.tag_numero_contrato) {
+      payload.tag_numero_contrato = credentials.tag_numero_contrato;
+    }
+
+    if (credentials.tag_codigo_externo_mensagem) {
+      payload.tag_codigo_externo_mensagem = credentials.tag_codigo_externo_mensagem;
+    }
+
+    if (credentials.tag_cpf) {
+      payload.tag_cpf = credentials.tag_cpf;
+    }
+
+    if (credentials.tag_boleto) {
+      payload.tag_boleto = credentials.tag_boleto;
+    }
+
+    if (credentials.dthr_agendado) {
+      // Formato: YYYY-MM-DD HH:mm:ss
+      payload.dthr_agendado = credentials.dthr_agendado;
+    }
+
+    if (credentials.codigo_externo) {
+      payload.codigo_externo = credentials.codigo_externo;
+    }
+
+    // Log detalhado para debug
+    const apiKeyMasked = credentials.chave_api 
+      ? `${credentials.chave_api.substring(0, 8)}...${credentials.chave_api.substring(credentials.chave_api.length - 4)}`
+      : 'NÃO FORNECIDA';
+    
+    this.logger.log(`🌐 Tentando enviar para API CromosApp RCS:`);
+    this.logger.log(`   URL: ${this.API_URL}`);
+    this.logger.log(`   API Key: ${apiKeyMasked}`);
+    this.logger.log(`   Total de mensagens: ${mensagens.length}`);
+    this.logger.debug(`   Payload: ${JSON.stringify({ ...payload, chave_api: apiKeyMasked, mensagens: mensagens.slice(0, 2) })}`);
 
     try {
       const response = await this.executeWithRetry(
         async () => {
-          const result = await firstValueFrom(
-            this.httpService.post(fullUrl, payload, {
-              headers: {
-                'Content-Type': 'application/json',
-                authorization: credentials.token as string,
-              },
-              timeout: 90000, // 90 segundos
-            }),
-          );
-          return result;
+          this.logger.debug(`📤 Enviando POST para: ${this.API_URL}`);
+          const startTime = Date.now();
+          
+          try {
+            const result = await firstValueFrom(
+              this.httpService.post(this.API_URL, payload, {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                timeout: 30000, // 30 segundos
+              }),
+            );
+            const duration = Date.now() - startTime;
+            this.logger.debug(`✅ Resposta recebida: Status ${result.status} (${duration}ms)`);
+            return result;
+          } catch (error: any) {
+            const duration = Date.now() - startTime;
+            
+            // Log detalhado do erro
+            if (error.response) {
+              // Erro HTTP (400, 401, 500, etc)
+              this.logger.error(`❌ Erro HTTP ${error.response.status} após ${duration}ms`);
+              this.logger.error(`   URL: ${error.config?.url || 'N/A'}`);
+              this.logger.error(`   Response: ${JSON.stringify(error.response.data)}`);
+              this.logger.error(`   Headers: ${JSON.stringify(error.response.headers)}`);
+            } else if (error.request) {
+              // Erro de rede (timeout, conexão recusada, etc)
+              this.logger.error(`❌ Erro de rede após ${duration}ms`);
+              this.logger.error(`   URL tentada: ${error.config?.url || 'N/A'}`);
+              this.logger.error(`   Código: ${error.code || 'N/A'}`);
+              this.logger.error(`   Mensagem: ${error.message}`);
+              
+              // Se for timeout, mostra o timeout configurado
+              if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+                this.logger.error(`   ⏱️ Timeout configurado: 30000ms`);
+              }
+            } else {
+              // Outro tipo de erro
+              this.logger.error(`❌ Erro: ${error.message}`);
+            }
+            
+            throw error;
+          }
         },
         this.getRetryStrategy(),
-        { provider: 'RCS' },
+        {
+          provider: 'RCS',
+        },
       );
 
       return {
         success: true,
-        message: 'Mensagens RCS enviadas com sucesso',
+        message: 'Campanha RCS enviada com sucesso',
         data: {
           status: response.status,
+          statusText: response.statusText,
           body: response.data,
         },
       };
     } catch (error: any) {
       return this.handleError(error, { provider: 'RCS' });
     }
-  }
-
-  private prepareTextDispatch(
-    data: CampaignData[],
-    credentials: ProviderCredentials,
-  ) {
-    const now = new Date();
-    const messages = data
-      .filter((dado) => dado.telefone && dado.mensagem)
-      .map((dado) => ({
-        phone: this.normalizePhoneNumber(dado.telefone),
-        document: dado.idcob_contrato || '',
-        message: dado.mensagem,
-        date: now.toISOString().replace('T', ' ').substring(0, 19),
-      }));
-
-    return {
-      type: 'text',
-      endpoint: '/v1/rcs/bulk/message/text',
-      payload: {
-        broker_code: credentials.broker_code,
-        customer_code: credentials.customer_code,
-        messages,
-      },
-    };
-  }
-
-  private prepareTemplateDispatch(
-    data: CampaignData[],
-    credentials: ProviderCredentials,
-    templateConfig: RcsTemplateConfig,
-  ) {
-    const now = new Date();
-    const messages = data
-      .filter((dado) => dado.telefone)
-      .map((dado) => ({
-        phone: this.normalizePhoneNumber(dado.telefone),
-        document: dado.idcob_contrato || '',
-        template_code: templateConfig.template_code,
-        variables: this.extractTemplateVariables(dado),
-        date: now.toISOString().replace('T', ' ').substring(0, 19),
-      }));
-
-    return {
-      type: 'template',
-      endpoint: '/v1/rcs/bulk/message/template',
-      payload: {
-        broker_code: credentials.broker_code,
-        customer_code: credentials.customer_code,
-        messages,
-      },
-    };
-  }
-
-  private prepareDocumentDispatch(
-    data: CampaignData[],
-    credentials: ProviderCredentials,
-    templateConfig: RcsTemplateConfig,
-  ) {
-    const now = new Date();
-    const messages = data
-      .filter((dado) => dado.telefone)
-      .map((dado) => ({
-        phone: this.normalizePhoneNumber(dado.telefone),
-        document: dado.idcob_contrato || '',
-        message: dado.mensagem || '',
-        file_url: templateConfig.file_url,
-        file_type: templateConfig.file_type || 'application/pdf',
-        file_name: templateConfig.file_name || 'documento.pdf',
-        date: now.toISOString().replace('T', ' ').substring(0, 19),
-      }));
-
-    return {
-      type: 'document',
-      endpoint: '/v1/rcs/bulk/message/document',
-      payload: {
-        broker_code: credentials.broker_code,
-        customer_code: credentials.customer_code,
-        messages,
-      },
-    };
-  }
-
-  private extractTemplateVariables(dado: CampaignData) {
-    return {
-      nome: dado.nome || '',
-      telefone: dado.telefone || '',
-      contrato: dado.idcob_contrato || '',
-      cpf_cnpj: dado.cpf_cnpj || '',
-      mensagem: dado.mensagem || '',
-    };
   }
 }
 
