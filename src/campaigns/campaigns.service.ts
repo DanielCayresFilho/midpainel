@@ -149,12 +149,36 @@ export class CampaignsService {
       this.logger.log(`Credentials fetched successfully for ${provider}:${envId}`);
       return response.data;
     } catch (error: any) {
+      // Tenta extrair mensagem de erro do WordPress
+      let errorMessage = error.message;
+      if (error.response?.data) {
+        const wpError = error.response.data;
+        if (wpError.message) {
+          errorMessage = wpError.message;
+        } else if (wpError.code && wpError.message) {
+          errorMessage = `${wpError.code}: ${wpError.message}`;
+        } else if (typeof wpError === 'string') {
+          errorMessage = wpError;
+        }
+      }
+
       this.logger.error(
-        `Error fetching credentials: ${error.message}`,
+        `Error fetching credentials: ${errorMessage}`,
         error.stack,
       );
+      
+      // Log detalhado para debug
+      if (error.response) {
+        this.logger.error(
+          `WordPress response status: ${error.response.status}`,
+        );
+        this.logger.error(
+          `WordPress response data: ${JSON.stringify(error.response.data)}`,
+        );
+      }
+
       throw new HttpException(
-        `Erro ao buscar credenciais: ${error.message}`,
+        `Erro ao buscar credenciais: ${errorMessage}`,
         error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

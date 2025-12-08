@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ElseHub - WhatsApp Workspace</title>
+    <meta name="description" content="Plataforma completa de atendimento via WhatsApp com gestão de campanhas e administração">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            light: "#2563eb",
+                            dark: "#1d4ed8"
+                        },
+                        secondary: {
+                            light: "#64748b",
+                            dark: "#475569"
+                        },
+                        accent: {
+                            light: "#0ea5e9",
+                            dark: "#0284c7"
+                        },
+                        background: {
+                            light: "#ffffff",
+                            dark: "#0f172a"
+                        },
+                        surface: {
+                            light: "#f8fafc",
+                            dark: "#1e293b"
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                        'mono': ['SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .sidebar-transition {
+            transition: all 0.3s ease-in-out;
+        }
+        .content-transition {
+            transition: margin-left 0.3s ease-in-out;
+        }
+        .theme-transition {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-background-light dark:bg-background-dark theme-transition font-sans">
+    <!-- Theme Toggle -->
+    <button id="themeToggle" class="fixed top-4 right-4 z-50 w-10 h-10 rounded-full bg-surface-light dark:bg-surface-dark shadow-lg flex items-center justify-center theme-transition">
+        <i class="fas fa-moon text-gray-600 dark:text-yellow-300 theme-transition" id="themeIcon"></i>
+    </button>
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar-transition w-64 bg-surface-light dark:bg-surface-dark border-r border-gray-200 dark:border-gray-700 flex flex-col theme-transition">
+            <!-- Logo Section -->
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-comments text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">ElseHub</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Workspace</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Sections -->
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <!-- Atendimento Section -->
+                <div>
+                    <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Atendimento</h3>
+                    <ul class="space-y-1">
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 theme-transition">
+                                <i class="fas fa-comment-dots w-5 mr-3"></i>
+                                <span>Conversas</span>
+                                <span class="ml-auto bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300 text-xs px-2 py-1 rounded-full">42</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-users w-5 mr-3"></i>
+                                <span>Contatos</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-history w-5 mr-3"></i>
+                                <span>Histórico</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Campanhas Section -->
+                <div class="mt-6">
+                    <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Campanhas</h3>
+                    <ul class="space-y-1">
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-bullhorn w-5 mr-3"></i>
+                                <span>Nova Campanha</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-list-alt w-5 mr-3"></i>
+                                <span>Campanhas Ativas</span>
+                                <span class="ml-auto bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300 text-xs px-2 py-1 rounded-full">8</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-chart-bar w-5 mr-3"></i>
+                                <span>Relatórios</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Administração Section -->
+                <div class="mt-6">
+                    <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Administração</h3>
+                    <ul class="space-y-1">
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-cog w-5 mr-3"></i>
+                                <span>Configurações</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-user-friends w-5 mr-3"></i>
+                                <span>Usuários</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-credit-card w-5 mr-3"></i>
+                                <span>Plano & Cobrança</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 theme-transition">
+                                <i class="fas fa-shield-alt w-5 mr-3"></i>
+                                <span>Segurança</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- User Profile -->
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex items-center space-x-3">
+                    <img src="https://picsum.photos/40?random=1" alt="User profile" class="w-8 h-8 rounded-full">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white truncate">João Silva</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">admin@empresa.com</p>
+                    </div>
+                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content-transition flex-1 bg-gray-50 dark:bg-gray-900 theme-transition">
+            <!-- Header -->
+            <header class="bg-white dark:bg-surface-dark border-b border-gray-200 dark:border-gray-700 px-6 py-4 theme-transition">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button id="sidebarToggle" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Dashboard</h2>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <input type="text" placeholder="Buscar..." class="w-64 px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent theme-transition">
+                            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        
+                        <div class="flex items-center space-x-3">
+                            <button class="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                                <i class="fas fa-bell"></i>
+                                <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                            </button>
+                            <button class="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                                <i class="fas fa-envelope"></i>
+                                <span class="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="p-6">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white dark:bg-surface-dark rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700 theme-transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Conversas Ativas</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">42</p>
+                                <p class="text-sm text-green-600 dark:text-green-400 mt-1">
+                                    <i class="fas fa-arrow-up"></i> 12% desde ontem
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-comments text-blue-600 dark:text-blue-400 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-surface-dark rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700 theme-transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Mensagens Hoje</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">1,248</p>
+                                <p class="text-sm text-green-600 dark:text-green-400 mt-1">
+                                    <i class="fas fa-arrow-up"></i> 8% desde ontem
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-envelope text-green-600 dark:text-green-400 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-surface-dark rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700 theme-transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Taxa de Resposta</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">89%</p>
+                                <p class="text-sm text-red-600 dark:text-red-400 mt-1">
+                                    <i class="fas fa-arrow-down"></i> 3% desde ontem
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chart-line text-orange-600 dark:text-orange-400 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-surface-dark rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700 theme-transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Tempo Médio</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">2m 18s</p>
+                                <p class="text-sm text-green-600 dark:text-green-400 mt-1">
+                                    <i class="fas fa-arrow-up"></i> 15% desde ontem
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-clock text-purple-600 dark:text-purple-400 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Recent Conversations -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 theme-transition">
+                            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Conversas Recentes</h3>
+                            </div>
+                            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                                <!-- Conversation Items -->
+                                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer theme-transition">
+                                    <div class="flex items-center space-x-3">
+                                        <img src="https://picsum.photos/40?random=2" alt="Maria Santos" class="w-10 h-10 rounded-full">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">Maria Santos</h4>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400">14:30</span>
+                                            </div>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300 truncate">Olá, gostaria de saber mais sobre o produto...</p>
+                                        </div>
+                                        <span class="w-2 h-2 bg-green-400 rounded-full"></span>
+                                    </div>
+                                </div>
+
+                                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer theme-transition">
+                                    <div class="flex items-center space-x-3">
+                                        <img src="https://picsum.photos/40?random=3" alt="Carlos Oliveira" class="w-10 h-10 rounded-full">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">Carlos Oliveira</h4>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400">13:45</span>
+                                            </div>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300 truncate">Preciso de ajuda com minha conta...</p>
+                                        </div>
+                                        <span class="w-2 h-2 bg-green-400 rounded-full"></span>
+                                    </div>
+                                </div>
+
+                                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer theme-transition">
+                                    <div class="flex items-center space-x-3">
+                                        <img src="https://picsum.photos/40?random=4" alt="Ana Costa" class="w-10 h-10 rounded-full">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">Ana Costa</h4>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400">12:20</span>
+                                            </div>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300 truncate">Quando chega meu pedido? Número #12345</p>
+                                        </div>
+                                        <span class="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                                    </div>
+                                </div>
+
+                                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer theme-transition">
+                                    <div class="flex items-center space-x-3">
+                                        <img src="https://picsum.photos/40?random=5" alt="Pedro Almeida" class="w-10 h-10 rounded-full">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">Pedro Almeida</h4>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400">11:15</span>
+                                            </div>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300 truncate">Obrigado pelo atendimento! 😊</p>
+                                        </div>
+                                        <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                                <button class="w-full text-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium theme-transition">
+                                    Ver todas as conversas
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions & Stats -->
+                    <div class="space-y-6">
+                        <!-- Quick Actions -->
+                        <div class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 theme-transition">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ações Rápidas</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button class="p-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg text-blue-600 dark:text-blue-400 theme-transition">
+                                    <i class="fas fa-plus mb-1"></i>
+                                    <span class="text-sm font-medium">Nova Conversa</span>
+                                </button>
+                                <button class="p-3 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-800/30 rounded-lg text-green-600 dark:text-green-400 theme-transition">
+                                    <i class="fas fa-bullhorn mb-1"></i>
+                                    <span class="text-sm font-medium">Nova Campanha</span>
+                                </button>
+                                <button class="p-3 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-800/30 rounded-lg text-purple-600 dark:text-purple-400 theme-transition">
+                                    <i class="fas fa-users mb-1"></i>
+                                    <span class="text-sm font-medium">Adicionar Contato</span>
+                                </button>
+                                <button class="p-3 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-800/30 rounded-lg text-orange-600 dark:text-orange-400 theme-transition">
+                                    <i class="fas fa-chart-bar mb-1"></i>
+                                    <span class="text-sm font-medium">Relatório</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Performance Chart -->
+                        <div class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 theme-transition">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Desempenho Semanal</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">Taxa de Resposta</span>
+                                        <span class="text-sm font-medium text-gray-900 dark:text-white">89%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: 89%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">Tempo Médio</span>
+                                        <span class="text-sm font-medium text-gray-900 dark:text-white">2m 18s</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                        <div class="bg-blue-500 h-2 rounded-full" style="width: 75%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">Satisfação</span>
+                                        <span class="text-sm font-medium text-gray-900 dark:text-white">94%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                        <div class="bg-purple-500 h-2 rounded-full" style="width: 94%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Theme management
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const htmlElement = document.documentElement;
+
+        // Check for saved theme preference or use system preference
+        const savedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+            htmlElement.classList.add('dark');
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            
+            if (htmlElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            } else {
+                localStorage.setItem('theme', 'light');
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+            }
+        });
+
+        // Sidebar toggle for mobile
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const mainContent = document.querySelector('main');
+
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('-ml-64');
+            mainContent.classList.toggle('lg:ml-0');
+        });
+
+        // Sample data for demonstration
+        const conversations = [
+            {
+                id: 1,
+                name: "Maria Santos",
+                lastMessage: "Olá, gostaria de saber mais sobre o produto...",
+                time: "14:30",
+                status: "online",
+                unread: 3,
+                avatar: "https://picsum.photos/40?random=2"
+            },
+            {
+                id: 2,
+                name: "Carlos Oliveira",
+                lastMessage: "Preciso de ajuda com minha conta...",
+                time: "13:45",
+                status: "online",
+                unread: 1,
+                avatar: "https://picsum.photos/40?random=3"
+            },
+            {
+                id: 3,
+                name: "Ana Costa",
+                lastMessage: "Quando chega meu pedido? Número #12345",
+                time: "12:20",
+                status: "away",
+                unread: 0,
+                avatar: "https://picsum.photos/40?random=4"
+            },
+            {
+                id: 4,
+                name: "Pedro Almeida",
+                lastMessage: "Obrigado pelo atendimento! 😊",
+                time: "11:15",
+                status: "offline",
+                unread: 0,
+                avatar: "https://picsum.photos/40?random=5"
+            }
+        ];
+
+        const stats = {
+            activeConversations: 42,
+            messagesToday: 1248,
+            responseRate: 89,
+            averageTime: "2m 18s"
+        };
+
+        // Initialize tooltips and other UI enhancements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add hover effects to all interactive elements
+            const interactiveElements = document.querySelectorAll('button, a, [role="button"]');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    el.classList.add('transform', 'scale-105');
+                });
+                el.addEventListener('mouseleave', () => {
+                    el.classList.remove('transform', 'scale-105');
+                });
+            });
+
+            // Handle navigation clicks
+            document.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // Here you would handle the actual navigation
+                    console.log('Navigation clicked:', link.textContent);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
