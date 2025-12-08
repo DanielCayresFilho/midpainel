@@ -436,10 +436,10 @@ class Painel_Campanhas {
             'mkc_token_url' => esc_url_raw($static_data['mkc_token_url'] ?? ''),
             'mkc_api_url' => esc_url_raw($static_data['mkc_api_url'] ?? ''),
             
-            // RCS CDA (CromosApp)
+            // RCS CDA (CromosApp) - funciona igual ao CDA
+            // codigo_equipe = idgis_ambiente (vem dos dados)
+            // codigo_usuario = sempre '1'
             'rcs_chave_api' => sanitize_text_field($static_data['rcs_chave_api'] ?? ''),
-            'rcs_codigo_equipe' => sanitize_text_field($static_data['rcs_codigo_equipe'] ?? ''),
-            'rcs_codigo_usuario' => sanitize_text_field($static_data['rcs_codigo_usuario'] ?? ''),
             'rcs_base_url' => esc_url_raw($static_data['rcs_base_url'] ?? ''),
             'rcs_token' => sanitize_text_field($static_data['rcs_token'] ?? ''), // Mantido para compatibilidade
             
@@ -2886,43 +2886,38 @@ class Painel_Campanhas {
             $credentials = [];
             
             if ($provider === 'RCS') {
-                // RCS CDA (CromosApp) - formato esperado pelo provider
+                // RCS CDA (CromosApp) - funciona igual ao CDA
+                // codigo_equipe = idgis_ambiente (vem dos dados da campanha)
+                // codigo_usuario = sempre '1'
+                // chave_api = vem das credenciais estáticas
                 $chave_api = $static_credentials['rcs_chave_api'] ?? $static_credentials['rcs_token'] ?? '';
-                $codigo_equipe = $static_credentials['rcs_codigo_equipe'] ?? '';
-                $codigo_usuario = $static_credentials['rcs_codigo_usuario'] ?? '';
                 
-                error_log('🔵 [REST API] Credenciais RCS encontradas: chave_api=' . (!empty($chave_api) ? 'SIM' : 'NÃO') . ', codigo_equipe=' . (!empty($codigo_equipe) ? 'SIM' : 'NÃO') . ', codigo_usuario=' . (!empty($codigo_usuario) ? 'SIM' : 'NÃO'));
+                error_log('🔵 [REST API] Credenciais RCS encontradas: chave_api=' . (!empty($chave_api) ? 'SIM' : 'NÃO'));
                 
-                if (empty($chave_api) || empty($codigo_equipe) || empty($codigo_usuario)) {
-                    $missing = [];
-                    if (empty($chave_api)) $missing[] = 'chave_api';
-                    if (empty($codigo_equipe)) $missing[] = 'codigo_equipe';
-                    if (empty($codigo_usuario)) $missing[] = 'codigo_usuario';
+                if (empty($chave_api)) {
+                    $error_message = 'Credenciais RCS incompletas. Configure a Chave API no API Manager. Acesse /painel/api-manager e preencha o campo "Chave API" na seção "Static Provider Credentials" > "RCS CDA (CromosApp)".';
+                    error_log('🔴 [REST API] Credenciais RCS incompletas. Faltando: chave_api');
                     
-                    $error_message = 'Credenciais RCS incompletas. Configure no API Manager: ' . implode(', ', $missing) . '. Acesse /painel/api-manager e preencha os campos na seção "Static Provider Credentials" > "RCS CDA (CromosApp)".';
-                    error_log('🔴 [REST API] Credenciais RCS incompletas. Faltando: ' . implode(', ', $missing));
-                    
-                    // Retorna erro em formato JSON claro para o microserviço
                     return new WP_Error(
                         'invalid_credentials',
                         $error_message,
                         [
                             'status' => 400,
                             'code' => 'INCOMPLETE_RCS_CREDENTIALS',
-                            'missing_fields' => $missing,
+                            'missing_fields' => ['chave_api'],
                             'provider' => 'RCS'
                         ]
                     );
                 }
                 
+                // Retorna apenas chave_api e base_url
+                // codigo_equipe e codigo_usuario serão definidos no microserviço usando idgis_ambiente e '1'
                 $credentials = [
                     'chave_api' => $chave_api,
-                    'codigo_equipe' => $codigo_equipe,
-                    'codigo_usuario' => $codigo_usuario,
                     'base_url' => $static_credentials['rcs_base_url'] ?? 'https://cromosapp.com.br/api/importarcs/importarRcsCampanhaAPI',
                 ];
                 
-                error_log('✅ [REST API] Credenciais RCS retornadas com sucesso');
+                error_log('✅ [REST API] Credenciais RCS retornadas com sucesso (codigo_equipe e codigo_usuario serão definidos no microserviço)');
             } elseif ($provider === 'CDA') {
                 $credentials = [
                     'api_url' => $static_credentials['cda_api_url'] ?? '',

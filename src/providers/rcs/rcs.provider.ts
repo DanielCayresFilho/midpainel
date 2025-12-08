@@ -30,13 +30,12 @@ export class RcsProvider extends BaseProvider {
   }
 
   validateCredentials(credentials: ProviderCredentials): boolean {
+    // RCS CDA funciona igual ao CDA:
+    // - chave_api é obrigatória (vem das credenciais estáticas)
+    // - codigo_equipe e codigo_usuario não vêm das credenciais, são definidos no send()
     return !!(
       credentials.chave_api &&
-      credentials.codigo_equipe &&
-      credentials.codigo_usuario &&
-      typeof credentials.chave_api === 'string' &&
-      typeof credentials.codigo_equipe === 'string' &&
-      typeof credentials.codigo_usuario === 'string'
+      typeof credentials.chave_api === 'string'
     );
   }
 
@@ -60,7 +59,17 @@ export class RcsProvider extends BaseProvider {
 
     // Extrai informações comuns da primeira mensagem
     const mensagem_corpo = data[0].mensagem || '';
-    const idgis_regua = data[0].idgis_ambiente || credentials.codigo_equipe;
+    const idgis_regua = data[0].idgis_ambiente;
+
+    // RCS CDA funciona igual ao CDA:
+    // codigo_equipe = idgis_ambiente (vem dos dados)
+    // codigo_usuario = sempre '1'
+    if (!idgis_regua) {
+      return {
+        success: false,
+        error: 'idgis_ambiente não encontrado nos dados',
+      };
+    }
 
     // Formata as mensagens no formato CSV conforme o manual
     // Formato: "1;5541999998888;FULANO;TAG2;TAG3;TAG4;..."
@@ -102,10 +111,12 @@ export class RcsProvider extends BaseProvider {
     }
 
     // Monta o payload conforme o manual
+    // codigo_equipe = idgis_ambiente (vem dos dados)
+    // codigo_usuario = sempre '1' (igual ao CDA)
     const payload: any = {
       chave_api: credentials.chave_api,
-      codigo_equipe: credentials.codigo_equipe,
-      codigo_usuario: credentials.codigo_usuario,
+      codigo_equipe: idgis_regua,
+      codigo_usuario: '1',
       nome: `campanha_${idgis_regua}_${Date.now()}`,
       corpo_mensagem: mensagem_corpo,
       mensagens: mensagens,

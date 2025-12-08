@@ -190,18 +190,14 @@ ob_start();
                 <!-- RCS CDA (CromosApp) -->
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
                     <h4 class="font-semibold text-gray-900 dark:text-white mb-3">RCS CDA (CromosApp)</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Funciona igual ao CDA: código_equipe = idgis_ambiente (vem dos dados), código_usuario = sempre '1'
+                    </p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Chave API *</label>
                             <input type="text" name="rcs_chave_api" value="<?php echo esc_attr($static_credentials['rcs_chave_api'] ?? $static_credentials['rcs_token'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Código Equipe *</label>
-                            <input type="text" name="rcs_codigo_equipe" value="<?php echo esc_attr($static_credentials['rcs_codigo_equipe'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Código Usuário *</label>
-                            <input type="text" name="rcs_codigo_usuario" value="<?php echo esc_attr($static_credentials['rcs_codigo_usuario'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" required>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Base URL</label>
