@@ -81,7 +81,7 @@ $current_page = $pc_current_page ?? 'home';
                     <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Principal</h3>
                     <ul class="space-y-1">
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/home')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'home') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/home')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'home') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-home w-5 mr-3"></i>
                                 <span>Dashboard</span>
                             </a>
@@ -94,26 +94,26 @@ $current_page = $pc_current_page ?? 'home';
                     <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Campanhas</h3>
                     <ul class="space-y-1">
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/campanhas')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'campanhas') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/campanhas')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'campanhas') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-list-alt w-5 mr-3"></i>
                                 <span>Minhas Campanhas</span>
                             </a>
                         </li>
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/nova-campanha')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'nova-campanha') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/nova-campanha')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'nova-campanha') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-plus-circle w-5 mr-3"></i>
                                 <span>Nova Campanha</span>
                             </a>
                         </li>
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/campanhas-recorrentes')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'campanhas-recorrentes') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/campanhas-recorrentes')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'campanhas-recorrentes') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-sync-alt w-5 mr-3"></i>
                                 <span>Campanhas Recorrentes</span>
                             </a>
                         </li>
                         <?php if ($is_admin): ?>
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/aprovar-campanhas')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'aprovar-campanhas') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/aprovar-campanhas')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'aprovar-campanhas') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-check-circle w-5 mr-3"></i>
                                 <span>Aprovar Campanhas</span>
                             </a>
@@ -127,7 +127,7 @@ $current_page = $pc_current_page ?? 'home';
                     <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Mensagens</h3>
                     <ul class="space-y-1">
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/mensagens')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'mensagens') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/mensagens')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'mensagens') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-comment-dots w-5 mr-3"></i>
                                 <span>Templates de Mensagem</span>
                             </a>
@@ -140,7 +140,7 @@ $current_page = $pc_current_page ?? 'home';
                     <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Relatórios</h3>
                     <ul class="space-y-1">
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/relatorios')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'relatorios') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/relatorios')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'relatorios') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-chart-bar w-5 mr-3"></i>
                                 <span>Relatórios</span>
                             </a>
@@ -154,13 +154,13 @@ $current_page = $pc_current_page ?? 'home';
                     <h3 class="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-2">Administração</h3>
                     <ul class="space-y-1">
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/api-manager')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'api-manager') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/api-manager')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'api-manager') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-key w-5 mr-3"></i>
                                 <span>API Manager</span>
                             </a>
                         </li>
                         <li>
-                            <a href="<?php echo esc_url(home_url('/painel/configuracoes')); ?>" class="flex items-center px-3 py-2 rounded-lg <?php echo ($current_page === 'configuracoes') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
+                            <a href="<?php echo esc_url(home_url('/painel/configuracoes')); ?>" class="flex items-center px-3 py-2 rounded-lg no-underline <?php echo ($current_page === 'configuracoes') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'; ?> theme-transition">
                                 <i class="fas fa-cog w-5 mr-3"></i>
                                 <span>Configurações</span>
                             </a>

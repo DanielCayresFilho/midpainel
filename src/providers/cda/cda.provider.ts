@@ -23,10 +23,12 @@ export class CdaProvider extends BaseProvider {
   }
 
   validateCredentials(credentials: ProviderCredentials): boolean {
+    // Aceita tanto 'url' quanto 'api_url' (WordPress pode retornar api_url)
+    const url = credentials.url || credentials.api_url;
     return !!(
-      credentials.url &&
+      url &&
       credentials.api_key &&
-      typeof credentials.url === 'string' &&
+      typeof url === 'string' &&
       typeof credentials.api_key === 'string'
     );
   }
@@ -48,6 +50,9 @@ export class CdaProvider extends BaseProvider {
         error: 'Nenhum dado para enviar',
       };
     }
+
+    // Aceita tanto 'url' quanto 'api_url' (WordPress pode retornar api_url)
+    const apiUrl = credentials.url || credentials.api_url;
 
     // Extrai informações comuns
     const idgis_regua = data[0].idgis_ambiente;
@@ -81,19 +86,19 @@ export class CdaProvider extends BaseProvider {
       : 'NÃO FORNECIDA';
     
     this.logger.log(`🌐 Tentando enviar para API CDA:`);
-    this.logger.log(`   URL: ${credentials.url}`);
+    this.logger.log(`   URL: ${apiUrl}`);
     this.logger.log(`   API Key: ${apiKeyMasked}`);
     this.logger.log(`   Payload: ${JSON.stringify({ ...payload, chave_api: apiKeyMasked })}`);
 
     try {
       const response = await this.executeWithRetry(
         async () => {
-          this.logger.debug(`📤 Enviando POST para: ${credentials.url}`);
+          this.logger.debug(`📤 Enviando POST para: ${apiUrl}`);
           const startTime = Date.now();
           
           try {
             const result = await firstValueFrom(
-              this.httpService.post(credentials.url as string, payload, {
+              this.httpService.post(apiUrl as string, payload, {
                 headers: {
                   'Content-Type': 'application/json',
                 },

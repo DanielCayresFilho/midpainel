@@ -16,7 +16,7 @@ import {
  */
 @Injectable()
 export class RcsProvider extends BaseProvider {
-  private readonly API_URL = 'https://cromosapp.com.br/api/importarcs/importarRcsCampanhaAPI';
+  private readonly DEFAULT_API_URL = 'https://cromosapp.com.br/api/importarcs/importarRcsCampanhaAPI';
 
   constructor(httpService: HttpService) {
     super(httpService, 'RcsProvider');
@@ -110,22 +110,22 @@ export class RcsProvider extends BaseProvider {
       };
     }
 
+    // Determina a URL da API: usa base_url das credenciais se disponível, senão usa a padrão
+    const apiUrl = credentials.base_url || this.DEFAULT_API_URL;
+
     // Monta o payload conforme o manual
     // codigo_equipe = idgis_ambiente (vem dos dados)
     // codigo_usuario = sempre '1' (igual ao CDA)
+    // ativo = true para iniciar o envio assim que disparar
     const payload: any = {
       chave_api: credentials.chave_api,
       codigo_equipe: idgis_regua,
       codigo_usuario: '1',
       nome: `campanha_${idgis_regua}_${Date.now()}`,
+      ativo: true, // Inicia o envio assim que disparar
       corpo_mensagem: mensagem_corpo,
       mensagens: mensagens,
     };
-
-    // Campos opcionais
-    if (credentials.ativo !== undefined) {
-      payload.ativo = credentials.ativo === true || credentials.ativo === 'true';
-    }
 
     if (credentials.tag_numero_contrato) {
       payload.tag_numero_contrato = credentials.tag_numero_contrato;
@@ -158,7 +158,7 @@ export class RcsProvider extends BaseProvider {
       : 'NÃO FORNECIDA';
     
     this.logger.log(`🌐 Tentando enviar para API CromosApp RCS:`);
-    this.logger.log(`   URL: ${this.API_URL}`);
+    this.logger.log(`   URL: ${apiUrl}`);
     this.logger.log(`   API Key: ${apiKeyMasked}`);
     this.logger.log(`   Total de mensagens: ${mensagens.length}`);
     this.logger.debug(`   Payload: ${JSON.stringify({ ...payload, chave_api: apiKeyMasked, mensagens: mensagens.slice(0, 2) })}`);
@@ -166,12 +166,12 @@ export class RcsProvider extends BaseProvider {
     try {
       const response = await this.executeWithRetry(
         async () => {
-          this.logger.debug(`📤 Enviando POST para: ${this.API_URL}`);
+          this.logger.debug(`📤 Enviando POST para: ${apiUrl}`);
           const startTime = Date.now();
           
           try {
             const result = await firstValueFrom(
-              this.httpService.post(this.API_URL, payload, {
+              this.httpService.post(apiUrl, payload, {
                 headers: {
                   'Content-Type': 'application/json',
                 },

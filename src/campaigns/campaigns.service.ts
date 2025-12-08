@@ -146,8 +146,15 @@ export class CampaignsService {
         );
       }
 
-      this.logger.log(`Credentials fetched successfully for ${provider}:${envId}`);
-      return response.data;
+      // Mapeia credenciais para o formato esperado por cada provider
+      const mappedCredentials = this.mapCredentials(provider, response.data);
+      
+      // Log das credenciais mapeadas (mascaradas)
+      const maskedCreds = this.maskCredentials(mappedCredentials);
+      this.logger.log(`Credentials fetched and mapped for ${provider}:${envId}`);
+      this.logger.debug(`Mapped credentials (masked): ${JSON.stringify(maskedCreds)}`);
+      
+      return mappedCredentials;
     } catch (error: any) {
       // Tenta extrair mensagem de erro do WordPress
       let errorMessage = error.message;
@@ -266,6 +273,69 @@ export class CampaignsService {
       completed_at: campaign.completedAt || undefined,
       errors: errors.length > 0 ? errors : undefined,
     };
+  }
+
+  /**
+   * Mapeia credenciais do WordPress para o formato esperado por cada provider
+   */
+  private mapCredentials(provider: string, credentials: any): any {
+    const upperProvider = provider.toUpperCase();
+    
+    switch (upperProvider) {
+      case 'CDA':
+        // WordPress retorna api_url, mas provider espera url
+        return {
+          ...credentials,
+          url: credentials.api_url || credentials.url,
+        };
+      
+      case 'RCS':
+        // WordPress retorna base_url, provider já está preparado para usar
+        return credentials;
+      
+      case 'GOSAC':
+      case 'NOAH':
+        // Já recebem url e token corretamente
+        return credentials;
+      
+      case 'SALESFORCE':
+        // Credenciais estáticas já vêm no formato correto
+        return credentials;
+      
+      default:
+        // Para outros providers, retorna como está
+        return credentials;
+    }
+  }
+
+  /**
+   * Mascara credenciais sensíveis para logs
+   */
+  private maskCredentials(credentials: any): any {
+    const masked = { ...credentials };
+    
+    // Campos sensíveis para mascarar
+    const sensitiveFields = [
+      'chave_api',
+      'api_key',
+      'token',
+      'client_secret',
+      'password',
+      'mkc_client_secret',
+    ];
+    
+    for (const field of sensitiveFields) {
+      if (masked[field] && typeof masked[field] === 'string') {
+        const value = masked[field];
+        if (value.length > 8) {
+          masked[field] = `${value.substring(0, 4)}...${value.substring(value.length - 4)}`;
+        } else {
+          masked[field] = '***';
+        }
+      }
+    }
+    
+    return masked;
   }
 }
 

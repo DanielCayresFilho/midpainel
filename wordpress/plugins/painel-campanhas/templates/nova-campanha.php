@@ -221,23 +221,9 @@ ob_start();
 
     <!-- Formulário Campanha por CPF -->
     <div id="cpf-campaign-form" class="campaign-form" style="display:none;">
-        <!-- Step 1: Base de Dados -->
-        <div class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 theme-transition">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Passo 1: Selecione a Base de Dados</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Escolha primeiro qual base (VW_BASE...) deseja consultar para cruzar com seu CSV</p>
-            <select id="cpf-table-select" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option value="">-- Escolha uma base --</option>
-                <?php foreach ($tables as $table): ?>
-                    <option value="<?php echo esc_attr($table[0]); ?>">
-                        <?php echo esc_html($table[0]); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-
-        <!-- Step 2: Upload CSV -->
-        <div id="cpf-upload-step" class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 theme-transition" style="display:none;">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📁 Passo 2: Upload do Arquivo CSV</h3>
+        <!-- Step 1: Upload CSV -->
+        <div id="cpf-upload-step" class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 theme-transition">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📁 Passo 1: Upload do Arquivo CSV</h3>
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Envie um CSV contendo um CPF ou telefone por linha</p>
             
             <div class="mb-4">
@@ -273,6 +259,20 @@ ob_start();
             </div>
         </div>
 
+        <!-- Step 2: Base de Dados -->
+        <div id="cpf-table-step" class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 theme-transition" style="display:none;">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Passo 2: Selecione a Base de Dados</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Escolha qual base (VW_BASE...) deseja consultar para cruzar com seu CSV</p>
+            <select id="cpf-table-select" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">-- Escolha uma base --</option>
+                <?php foreach ($tables as $table): ?>
+                    <option value="<?php echo esc_attr($table[0]); ?>">
+                        <?php echo esc_html($table[0]); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
         <!-- Step 3: Filtros Adicionais (Opcional) -->
         <div id="cpf-filters-step" class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 theme-transition" style="display:none;">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔍 Passo 3: Filtros Adicionais (Opcional)</h3>
@@ -282,9 +282,9 @@ ob_start();
             </div>
         </div>
 
-        <!-- Step 4: Resultado e Download -->
+        <!-- Step 4: Resultado e Opções -->
         <div id="cpf-download-step" class="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 theme-transition" style="display:none;">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">⬇️ Passo 4: Baixe os telefones encontrados</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">✅ Passo 4: Resultado do Cruzamento</h3>
             
             <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
                 <div class="text-center mb-3">
@@ -296,9 +296,12 @@ ob_start();
                 </p>
             </div>
 
-            <div class="text-center">
+            <div class="flex gap-4 justify-center">
                 <button id="download-cpf-csv-btn" class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold" disabled>
                     <i class="fas fa-download mr-2"></i>Baixar arquivo limpo
+                </button>
+                <button id="create-cpf-campaign-btn" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold" disabled>
+                    <i class="fas fa-paper-plane mr-2"></i>Criar campanha diretamente
                 </button>
             </div>
         </div>
@@ -377,7 +380,7 @@ ob_start();
 
             <!-- Botão Criar -->
             <div class="flex gap-4">
-                <button id="create-cpf-campaign-btn" class="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all transform hover:scale-105" disabled>
+                <button id="create-cpf-campaign-btn-final" class="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all transform hover:scale-105" disabled>
                     <i class="fas fa-paper-plane mr-2"></i>Criar Campanha
                 </button>
                 <a href="<?php echo esc_url(home_url('/painel/campanhas')); ?>" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">

@@ -858,7 +858,7 @@ jQuery(document).ready(function($) {
         }
     });
     
-    // CPF Step 2: Upload CSV
+    // CPF Step 1: Upload CSV
     // Processa arquivo selecionado ou arrastado
     function processCpfFile(file) {
         if (!file) return;
@@ -903,8 +903,8 @@ jQuery(document).ready(function($) {
                     $('#cpf-count').text(response.data.count);
                     $('#cpf-preview-list').html(response.data.preview.join('<br>'));
                     $('#cpf-upload-preview').slideDown();
-                    $('#cpf-filters-step').slideDown();
-                    loadCpfFilters();
+                    // Após upload, mostra step 2 (seleção de base)
+                    $('#cpf-table-step').slideDown();
                 } else {
                     alert('Erro: ' + response.data);
                     $('#cpf-upload-area').html(originalHtml);
@@ -1095,7 +1095,9 @@ jQuery(document).ready(function($) {
                     link.download = response.data.filename;
                     link.click();
                     
+                    // Após download, mostra opção de criar campanha
                     $('#cpf-campaign-step').slideDown();
+                    $('#create-cpf-campaign-btn').prop('disabled', false);
                     btn.prop('disabled', false).html('<i class="fas fa-download mr-2"></i>Baixar arquivo limpo');
                 } else {
                     alert('Erro: ' + response.data);
@@ -1168,7 +1170,18 @@ jQuery(document).ready(function($) {
     }
     
     // CPF Step 5: Criar campanha
+    // Botão para criar campanha diretamente (sem baixar CSV)
     $('#create-cpf-campaign-btn').on('click', function() {
+        // Mostra o step 5 (configuração de campanha) diretamente
+        $('#cpf-campaign-step').slideDown();
+        // Scroll para o step 5
+        $('html, body').animate({
+            scrollTop: $('#cpf-campaign-step').offset().top - 100
+        }, 500);
+    });
+    
+    // Handler original do botão criar campanha (após validar)
+    $('#create-cpf-campaign-btn-final').on('click', function() {
         const btn = $(this);
         const templateId = $('#cpf-template-select').val();
         const selectedProviders = [];

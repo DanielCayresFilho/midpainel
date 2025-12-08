@@ -121,19 +121,33 @@ class Painel_Campanhas {
             'callback' => [$this, 'get_credentials_rest'],
             'permission_callback' => [$this, 'check_api_key_rest'],
         ]);
+        
+        register_rest_route('webhook-status/v1', '/update', [
+            'methods' => 'POST',
+            'callback' => [$this, 'handle_webhook_status_update'],
+            'permission_callback' => [$this, 'check_api_key_rest'],
+        ]);
     }
     
     public function check_api_key_rest($request) {
         $master_key = get_option('acm_master_api_key');
         if (empty($master_key)) {
+            error_log('🔴 [REST API] Master API Key não configurada');
             return new WP_Error('no_master_key', 'Master API Key não configurada.', ['status' => 503]);
         }
 
         $provided_key = $request->get_header('X-API-KEY');
+        if (empty($provided_key)) {
+            error_log('🔴 [REST API] X-API-KEY header não fornecido');
+            return new WP_Error('no_key_provided', 'API Key não fornecida no header X-API-KEY.', ['status' => 401]);
+        }
+        
         if ($provided_key !== $master_key) {
+            error_log('🔴 [REST API] API Key inválida. Fornecida: ' . substr($provided_key, 0, 10) . '... (esperada: ' . substr($master_key, 0, 10) . '...)');
             return new WP_Error('invalid_key', 'API Key inválida.', ['status' => 401]);
         }
         
+        error_log('✅ [REST API] API Key válida');
         return true;
     }
     
@@ -607,16 +621,26 @@ class Painel_Campanhas {
         $file = $_FILES['csv_file'];
         
         // Validações básicas
-        $allowed_types = ['text/csv', 'text/plain', 'application/csv'];
-        if (!in_array($file['type'], $allowed_types)) {
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            wp_send_json_error('Erro no upload do arquivo: ' . $file['error']);
+        }
+        
+        // Valida extensão do arquivo
+        $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($file_extension !== 'csv') {
             wp_send_json_error('Apenas arquivos CSV são permitidos');
         }
         
+        // Valida tamanho
         if ($file['size'] > 10 * 1024 * 1024) { // 10MB
             wp_send_json_error('Arquivo muito grande (máx 10MB)');
         }
         
         // Lê o arquivo
+        if (!is_uploaded_file($file['tmp_name'])) {
+            wp_send_json_error('Arquivo inválido ou não foi enviado corretamente');
+        }
+        
         $content = file_get_contents($file['tmp_name']);
         $lines = array_filter(array_map('trim', explode("\n", $content)));
         
@@ -2977,6 +3001,107 @@ class Painel_Campanhas {
             }
         }
         return false;
+    }
+    
+    public function handle_webhook_status_update($request) {
+        error_log('🔵 [Webhook] Recebendo atualização de status');
+        
+        $body = $request->get_json_params();
+        
+        if (empty($body)) {
+            error_log('🔴 [Webhook] Body vazio');
+            return new WP_Error('invalid_request', 'Body vazio', ['status' => 400]);
+        }
+        
+        $agendamento_id = sanitize_text_field($body['agendamento_id'] ?? '');
+        $status = sanitize_text_field($body['status'] ?? '');
+        $provider = sanitize_text_field($body['provider'] ?? '');
+        $resposta_api = sanitize_textarea_field($body['resposta_api'] ?? '');
+        $data_disparo = sanitize_text_field($body['data_disparo'] ?? '');
+        $total_enviados = intval($body['total_enviados'] ?? 0);
+        $total_falhas = intval($body['total_falhas'] ?? 0);
+        
+        error_log('🔵 [Webhook] Agendamento ID: ' . $agendamento_id);
+        error_log('🔵 [Webhook] Status: ' . $status);
+        error_log('🔵 [Webhook] Provider: ' . $provider);
+        
+        if (empty($agendamento_id) || empty($status)) {
+            error_log('🔴 [Webhook] Dados incompletos: agendamento_id=' . $agendamento_id . ', status=' . $status);
+            return new WP_Error('invalid_request', 'agendamento_id e status são obrigatórios', ['status' => 400]);
+        }
+        
+        // Mapeia status do microserviço para status do WordPress
+        $status_map = [
+            'enviado' => 'enviado',
+            'erro_envio' => 'erro',
+            'erro_credenciais' => 'erro',
+            'erro_validacao' => 'erro',
+            'processando' => 'pendente',
+            'mkc_executado' => 'enviado',
+            'mkc_erro' => 'erro',
+        ];
+        
+        $wp_status = $status_map[$status] ?? 'erro';
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'envios_pendentes';
+        
+        // Prepara dados para atualização
+        $update_data = [];
+        $update_formats = [];
+        
+        $update_data['status'] = $wp_status;
+        $update_formats[] = '%s';
+        
+        // Adiciona data_disparo se fornecida
+        if (!empty($data_disparo)) {
+            // Converte formato ISO para MySQL datetime
+            $data_disparo_mysql = date('Y-m-d H:i:s', strtotime($data_disparo));
+            $update_data['data_disparo'] = $data_disparo_mysql;
+            $update_formats[] = '%s';
+        }
+        
+        // Verifica se a coluna resposta_api existe antes de tentar atualizar
+        $columns = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
+        if (in_array('resposta_api', $columns)) {
+            // Adiciona resposta_api se fornecida (pode ser JSON string)
+            if (!empty($resposta_api)) {
+                // Tenta decodificar se for JSON
+                $resposta_decoded = json_decode($resposta_api, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $update_data['resposta_api'] = json_encode($resposta_decoded, JSON_UNESCAPED_UNICODE);
+                } else {
+                    $update_data['resposta_api'] = $resposta_api;
+                }
+                $update_formats[] = '%s';
+            }
+        }
+        
+        // Atualiza todos os registros com o mesmo agendamento_id
+        $updated = $wpdb->update(
+            $table,
+            $update_data,
+            ['agendamento_id' => $agendamento_id],
+            $update_formats,
+            ['%s'] // formato do where: agendamento_id
+        );
+        
+        if ($updated === false) {
+            error_log('🔴 [Webhook] Erro ao atualizar status no banco de dados: ' . $wpdb->last_error);
+            return new WP_Error('database_error', 'Erro ao atualizar status no banco de dados: ' . $wpdb->last_error, ['status' => 500]);
+        }
+        
+        error_log('✅ [Webhook] Status atualizado com sucesso: ' . $agendamento_id . ' -> ' . $wp_status . ' (' . $updated . ' registros)');
+        
+        return rest_ensure_response([
+            'success' => true,
+            'message' => 'Status atualizado com sucesso',
+            'agendamento_id' => $agendamento_id,
+            'status' => $wp_status,
+            'records_updated' => $updated,
+            'total_enviados' => $total_enviados,
+            'total_falhas' => $total_falhas
+        ]);
     }
 }
 
