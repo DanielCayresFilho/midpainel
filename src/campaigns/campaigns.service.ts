@@ -193,12 +193,14 @@ export class CampaignsService {
 
   identifyProvider(agendamentoId: string): string {
     const prefix = agendamentoId.charAt(0).toUpperCase();
-    
+
     const providerMap: Record<string, string> = {
       'C': 'CDA',
       'G': 'GOSAC',
       'N': 'NOAH',
       'R': 'RCS',
+      'O': 'RCS_OTIMA',
+      'W': 'WHATSAPP_OTIMA',
       'S': 'SALESFORCE',
     };
 
@@ -280,7 +282,7 @@ export class CampaignsService {
    */
   private mapCredentials(provider: string, credentials: any): any {
     const upperProvider = provider.toUpperCase();
-    
+
     switch (upperProvider) {
       case 'CDA':
         // WordPress retorna api_url, mas provider espera url
@@ -288,20 +290,36 @@ export class CampaignsService {
           ...credentials,
           url: credentials.api_url || credentials.url,
         };
-      
+
       case 'RCS':
         // WordPress retorna base_url, provider já está preparado para usar
         return credentials;
-      
+
+      case 'RCS_OTIMA':
+        // RCS Ótima usa token para autenticação
+        return {
+          ...credentials,
+          authorization: credentials.token || credentials.authorization,
+        };
+
+      case 'WHATSAPP_OTIMA':
+        // WhatsApp Ótima usa token, broker_code e customer_code
+        return {
+          ...credentials,
+          authorization: credentials.token || credentials.authorization,
+          broker_code: credentials.broker_code || '',
+          customer_code: credentials.customer_code || '',
+        };
+
       case 'GOSAC':
       case 'NOAH':
         // Já recebem url e token corretamente
         return credentials;
-      
+
       case 'SALESFORCE':
         // Credenciais estáticas já vêm no formato correto
         return credentials;
-      
+
       default:
         // Para outros providers, retorna como está
         return credentials;

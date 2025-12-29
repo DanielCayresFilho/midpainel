@@ -6,6 +6,8 @@ import { CdaSendProcessor } from './providers/cda-send.processor';
 import { GosacSendProcessor } from './providers/gosac-send.processor';
 import { NoahSendProcessor } from './providers/noah-send.processor';
 import { RcsSendProcessor } from './providers/rcs-send.processor';
+import { RcsOtimaSendProcessor } from './providers/rcs-otima-send.processor';
+import { WhatsappOtimaSendProcessor } from './providers/whatsapp-otima-send.processor';
 import { SalesforceSendProcessor } from './providers/salesforce-send.processor';
 import { SalesforceMkcProcessor } from './providers/salesforce-mkc.processor';
 import { CampaignsModule } from '../campaigns/campaigns.module';
@@ -24,6 +26,8 @@ import { PrismaModule } from '../prisma/prisma.module';
       { name: queueNames.GOSAC_START },
       { name: queueNames.NOAH_SEND },
       { name: queueNames.RCS_SEND },
+      { name: queueNames.RCS_OTIMA_SEND },
+      { name: queueNames.WHATSAPP_OTIMA_SEND },
       { name: queueNames.SALESFORCE_SEND },
       { name: queueNames.SALESFORCE_MKC },
     ),
@@ -39,6 +43,8 @@ import { PrismaModule } from '../prisma/prisma.module';
     GosacSendProcessor,
     NoahSendProcessor,
     RcsSendProcessor,
+    RcsOtimaSendProcessor,
+    WhatsappOtimaSendProcessor,
     SalesforceSendProcessor,
     SalesforceMkcProcessor,
   ],

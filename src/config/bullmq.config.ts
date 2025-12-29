@@ -15,6 +15,8 @@ export const queueNames = {
   GOSAC_START: 'gosac-start',
   NOAH_SEND: 'noah-send',
   RCS_SEND: 'rcs-send',
+  RCS_OTIMA_SEND: 'rcs-otima-send',
+  WHATSAPP_OTIMA_SEND: 'whatsapp-otima-send',
   SALESFORCE_SEND: 'salesforce-send',
   SALESFORCE_MKC: 'salesforce-mkc',
 } as const;

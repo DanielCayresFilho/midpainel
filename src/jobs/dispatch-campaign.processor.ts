@@ -16,6 +16,8 @@ export class DispatchCampaignProcessor extends WorkerHost {
     @InjectQueue(queueNames.GOSAC_SEND) private readonly gosacQueue: Queue,
     @InjectQueue(queueNames.NOAH_SEND) private readonly noahQueue: Queue,
     @InjectQueue(queueNames.RCS_SEND) private readonly rcsQueue: Queue,
+    @InjectQueue(queueNames.RCS_OTIMA_SEND) private readonly rcsOtimaQueue: Queue,
+    @InjectQueue(queueNames.WHATSAPP_OTIMA_SEND) private readonly whatsappOtimaQueue: Queue,
     @InjectQueue(queueNames.SALESFORCE_SEND) private readonly salesforceQueue: Queue,
   ) {
     super();
@@ -93,6 +95,8 @@ export class DispatchCampaignProcessor extends WorkerHost {
       'GOSAC': this.gosacQueue,
       'NOAH': this.noahQueue,
       'RCS': this.rcsQueue,
+      'RCS_OTIMA': this.rcsOtimaQueue,
+      'WHATSAPP_OTIMA': this.whatsappOtimaQueue,
       'SALESFORCE': this.salesforceQueue,
     };
 
