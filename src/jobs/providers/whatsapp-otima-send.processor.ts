@@ -1,20 +1,19 @@
 import { Processor } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WebhookService } from '../../webhook/webhook.service';
 import { WhatsappOtimaProvider } from '../../providers/whatsapp-otima/whatsapp-otima.provider';
 import { BaseProviderProcessor } from './base-provider.processor';
+import { queueNames } from '../../config/bullmq.config';
 
-@Processor('whatsapp-otima-send')
+@Processor(queueNames.WHATSAPP_OTIMA_SEND)
 export class WhatsappOtimaSendProcessor extends BaseProviderProcessor {
-  protected readonly logger = new Logger(WhatsappOtimaSendProcessor.name);
-  protected readonly providerName = 'WHATSAPP_OTIMA';
+  protected providerName = 'WHATSAPP_OTIMA';
 
   constructor(
-    protected readonly provider: WhatsappOtimaProvider,
-    protected readonly prisma: PrismaService,
-    protected readonly webhookService: WebhookService,
+    provider: WhatsappOtimaProvider,
+    prisma: PrismaService,
+    webhookService: WebhookService,
   ) {
-    super(provider, prisma, webhookService);
+    super(provider, prisma, webhookService, WhatsappOtimaSendProcessor.name);
   }
 }

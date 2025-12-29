@@ -31,11 +31,10 @@ interface WhatsAppOtimaPayload {
 
 @Injectable()
 export class WhatsappOtimaProvider extends BaseProvider {
-  protected readonly logger = new Logger(WhatsappOtimaProvider.name);
   private readonly API_URL = 'https://services.otima.digital/v1/whatsapp/bulk/message/hsm';
 
   constructor(httpService: HttpService) {
-    super(httpService);
+    super(httpService, 'WhatsappOtimaProvider');
   }
 
   async send(
@@ -101,7 +100,7 @@ export class WhatsappOtimaProvider extends BaseProvider {
     const result = await this.executeWithRetry(
       async () => {
         this.logger.log(`🌐 [WhatsApp Ótima] Enviando requisição para ${this.API_URL}`);
-        this.logger.log(`🔑 [WhatsApp Ótima] Token: ${this.maskCredential(token)}`);
+        this.logger.log(`🔑 [WhatsApp Ótima] Token: ${token ? token.substring(0, 10) + '...' : 'N/A'}`);
 
         const response = await this.httpService.axiosRef.post(
           this.API_URL,
@@ -129,7 +128,6 @@ export class WhatsappOtimaProvider extends BaseProvider {
         };
       },
       this.getRetryStrategy(),
-      'WhatsApp Ótima',
     );
 
     return result;
@@ -149,8 +147,8 @@ export class WhatsappOtimaProvider extends BaseProvider {
 
   getRetryStrategy(): RetryStrategy {
     return {
-      maxAttempts: 3,
-      delayMs: [1000, 2000, 5000], // 1s, 2s, 5s
+      maxRetries: 3,
+      delays: [1000, 2000, 5000], // 1s, 2s, 5s
     };
   }
 }

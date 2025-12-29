@@ -28,11 +28,10 @@ interface RCSOtimaPayload {
 
 @Injectable()
 export class RcsOtimaProvider extends BaseProvider {
-  protected readonly logger = new Logger(RcsOtimaProvider.name);
   private readonly API_URL = 'https://services.otima.digital/v1/rcs/bulk/message/template';
 
   constructor(httpService: HttpService) {
-    super(httpService);
+    super(httpService, 'RcsOtimaProvider');
   }
 
   async send(
@@ -91,7 +90,7 @@ export class RcsOtimaProvider extends BaseProvider {
     const result = await this.executeWithRetry(
       async () => {
         this.logger.log(`🌐 [RCS Ótima] Enviando requisição para ${this.API_URL}`);
-        this.logger.log(`🔑 [RCS Ótima] Token: ${this.maskCredential(token)}`);
+        this.logger.log(`🔑 [RCS Ótima] Token: ${token ? token.substring(0, 10) + '...' : 'N/A'}`);
 
         const response = await this.httpService.axiosRef.post(
           this.API_URL,
@@ -119,7 +118,6 @@ export class RcsOtimaProvider extends BaseProvider {
         };
       },
       this.getRetryStrategy(),
-      'RCS Ótima',
     );
 
     return result;
@@ -139,8 +137,8 @@ export class RcsOtimaProvider extends BaseProvider {
 
   getRetryStrategy(): RetryStrategy {
     return {
-      maxAttempts: 3,
-      delayMs: [1000, 2000, 5000], // 1s, 2s, 5s
+      maxRetries: 3,
+      delays: [1000, 2000, 5000], // 1s, 2s, 5s
     };
   }
 }
