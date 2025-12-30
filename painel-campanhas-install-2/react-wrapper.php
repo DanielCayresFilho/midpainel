@@ -99,21 +99,29 @@ usort($js_files, function($a, $b) {
     // Inline script com dados do WordPress para React (antes dos assets React carregarem)
     ?>
     <script>
-        window.pcAjax = <?php 
-        // admin_url() sempre retorna URL absoluta completa
-        $ajax_url = admin_url('admin-ajax.php');
-        
-        // Se por algum motivo admin_url() não funcionar, usa home_url como fallback
-        // Mas admin_url() sempre deve funcionar, então isso é apenas uma segurança extra
-        if (empty($ajax_url)) {
-            $ajax_url = home_url('/wp-admin/admin-ajax.php');
-        }
-        
+        window.pcAjax = <?php
+        // Pega o site_url (URL completa do WordPress)
+        $site_url = get_site_url();
+
+        // Garante que termina sem /
+        $site_url = rtrim($site_url, '/');
+
+        // Monta URL absoluta do admin-ajax.php
+        $ajax_url = $site_url . '/wp-admin/admin-ajax.php';
+
+        // Debug: Log da URL gerada
+        error_log('🔵 [React Wrapper] AJAX URL gerada: ' . $ajax_url);
+        error_log('🔵 [React Wrapper] Site URL: ' . $site_url);
+        error_log('🔵 [React Wrapper] Home URL: ' . home_url());
+        error_log('🔵 [React Wrapper] Admin URL: ' . admin_url('admin-ajax.php'));
+
         $ajax_data = [
-            'ajaxurl' => esc_url_raw($ajax_url),
+            'ajaxurl' => $ajax_url,
+            'ajaxUrl' => $ajax_url, // Duplicado para compatibilidade
             'nonce' => wp_create_nonce('pc_nonce'),
             'cmNonce' => wp_create_nonce('campaign-manager-nonce'),
             'homeUrl' => home_url('/'),
+            'siteUrl' => $site_url,
             'restUrl' => rest_url('campaigns/v1/'),
             'currentUser' => [
                 'id' => get_current_user_id(),
@@ -122,9 +130,19 @@ usort($js_files, function($a, $b) {
                 'isAdmin' => current_user_can('manage_options'),
             ],
             'currentPage' => $current_page ?? 'home',
+            'debug' => [
+                'siteUrl' => $site_url,
+                'homeUrl' => home_url(),
+                'adminUrl' => admin_url('admin-ajax.php'),
+                'generatedAjaxUrl' => $ajax_url,
+            ],
         ];
-        
-        echo wp_json_encode($ajax_data, JSON_UNESCAPED_SLASHES); ?>;
+
+        echo wp_json_encode($ajax_data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>;
+
+        // Debug no console
+        console.log('🔵 [React Wrapper] pcAjax configurado:', window.pcAjax);
+        console.log('🔵 [React Wrapper] URL AJAX:', window.pcAjax.ajaxurl);
     </script>
     
     <?php

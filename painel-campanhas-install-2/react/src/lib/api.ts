@@ -4,48 +4,34 @@
 
 // Configuração da URL do WordPress
 const getAjaxUrl = () => {
+  // Se o WordPress já forneceu a URL correta via window.pcAjax, usa ela diretamente
   if (typeof (window as any).pcAjax !== 'undefined' && (window as any).pcAjax?.ajaxurl) {
-    let ajaxUrl = (window as any).pcAjax.ajaxurl;
-    
-    // Extrai o caminho base da URL atual (ex: /wordpress)
-    const currentPath = window.location.pathname;
-    const pathMatch = currentPath.match(/^(\/[^\/]+)/);
-    const basePath = pathMatch ? pathMatch[1] : '';
-    
-    // Se a URL do AJAX não contém o caminho base, adiciona
-    try {
-      const urlObj = new URL(ajaxUrl);
-      // Se o pathname não começa com o caminho base, corrige
-      if (basePath && basePath !== '/' && !urlObj.pathname.startsWith(basePath)) {
-        ajaxUrl = `${urlObj.origin}${basePath}/wp-admin/admin-ajax.php`;
-        console.log('URL corrigida:', ajaxUrl);
-      }
-    } catch (e) {
-      // Se não conseguir fazer parse, tenta construir manualmente
-      if (basePath && basePath !== '/') {
-        ajaxUrl = `${window.location.origin}${basePath}/wp-admin/admin-ajax.php`;
-        console.log('URL construída manualmente:', ajaxUrl);
-      }
-    }
-    
+    const ajaxUrl = (window as any).pcAjax.ajaxurl;
+    console.log('🔵 [API] Usando AJAX URL do WordPress:', ajaxUrl);
     return ajaxUrl;
   }
-  
-  // Fallback: constrói a partir do caminho atual
-  const currentPath = window.location.pathname;
-  const pathMatch = currentPath.match(/^(\/[^\/]+)/);
-  const basePath = pathMatch ? pathMatch[1] : '';
-  return `${window.location.origin}${basePath}/wp-admin/admin-ajax.php`;
+
+  // Fallback: constrói URL absoluta (site raiz + /wp-admin/admin-ajax.php)
+  const fallbackUrl = `${window.location.origin}/wp-admin/admin-ajax.php`;
+  console.warn('⚠️ [API] window.pcAjax não encontrado, usando fallback:', fallbackUrl);
+  return fallbackUrl;
 };
 
 // Helper para fazer requisições AJAX do WordPress
-export const wpAjax = async (action: string, data: Record<string, any> = {}) => {
+export const wpAjax = async (action: string, data: Record<string, any> = {}, nonceType: 'nonce' | 'cmNonce' = 'nonce') => {
   const formData = new FormData();
   formData.append('action', action);
   
   // Adiciona nonce se disponível
-  if (typeof (window as any).pcAjax !== 'undefined' && (window as any).pcAjax?.nonce) {
-    formData.append('nonce', (window as any).pcAjax.nonce);
+  if (typeof (window as any).pcAjax !== 'undefined') {
+    // Para ações cm_* usa cmNonce, para pc_* usa nonce
+    const nonce = (window as any).pcAjax[nonceType] || (window as any).pcAjax.nonce;
+    if (nonce) {
+      formData.append('nonce', nonce);
+      console.log(`🔵 [API] Usando nonce tipo: ${nonceType} para ação: ${action}`);
+    } else {
+      console.warn(`⚠️ [API] Nonce ${nonceType} não encontrado para ação: ${action}`);
+    }
   }
   
   // Adiciona outros dados
@@ -136,7 +122,7 @@ export const scheduleCampaign = (data: Record<string, any>) => {
     payload.template_source = data.template_source;
   }
   
-  return wpAjax('cm_schedule_campaign', payload);
+  return wpAjax('cm_schedule_campaign', payload, 'cmNonce');
 };
 
 export const getPendingCampaigns = () => {
@@ -153,14 +139,16 @@ export const denyCampaign = (agendamentoId: string, fornecedor: string, motivo?:
 
 // Filtros e bases
 export const getFilters = (base: string) => {
-  return wpAjax('cm_get_filters', { table_name: base });
+  // Usa cmNonce para handlers de campanha (cm_*)
+  return wpAjax('cm_get_filters', { table_name: base }, 'cmNonce');
 };
 
 export const getCount = (data: Record<string, any>) => {
+  // Usa cmNonce para handlers de campanha (cm_*)
   return wpAjax('cm_get_count', {
     table_name: data.table_name || data.base,
     filters: data.filters || [],
-  });
+  }, 'cmNonce');
 };
 
 // Templates de mensagem
@@ -185,7 +173,27 @@ export const deleteMessage = (id: string) => {
 };
 
 export const getTemplateContent = async (id: string) => {
-  const content = await wpAjax('cm_get_template_content', { template_id: parseInt(id) });
+  console.log('📄 [getTemplateContent] ID recebido:', id, 'Tipo:', typeof id);
+
+  // Valida se ID é válido
+  if (!id || id === '' || id === '0') {
+    console.error('🔴 [getTemplateContent] ID inválido:', id);
+    throw new Error('ID do template inválido');
+  }
+
+  const templateId = parseInt(id);
+  if (isNaN(templateId) || templateId <= 0) {
+    console.error('🔴 [getTemplateContent] ID não é um número válido:', id);
+    throw new Error('ID do template inválido');
+  }
+
+  console.log('✅ [getTemplateContent] Buscando template ID:', templateId);
+
+  // Usa cmNonce para handlers de campanha (cm_*)
+  const content = await wpAjax('cm_get_template_content', { template_id: templateId }, 'cmNonce');
+
+  console.log('📄 [getTemplateContent] Conteúdo recebido:', typeof content === 'string' ? content.substring(0, 50) + '...' : content);
+
   // O handler retorna apenas a string do conteúdo, normalizamos para objeto
   return typeof content === 'string' ? { content } : content;
 };
@@ -211,7 +219,7 @@ export const getReport1x1Stats = (params: Record<string, any> = {}) => {
 
 // Campanhas recorrentes
 export const getRecurring = () => {
-  return wpAjax('cm_get_recurring', {});
+  return wpAjax('cm_get_recurring', {}, 'cmNonce');
 };
 
 export const saveRecurring = (data: Record<string, any>) => {
@@ -220,28 +228,28 @@ export const saveRecurring = (data: Record<string, any>) => {
     nome_campanha: data.nome_campanha,
     table_name: data.table_name,
     template_id: data.template_id,
-    providers_config: typeof data.providers_config === 'string' 
-      ? data.providers_config 
+    providers_config: typeof data.providers_config === 'string'
+      ? data.providers_config
       : JSON.stringify(data.providers_config || {}),
-    filters: typeof data.filters === 'string' 
-      ? data.filters 
+    filters: typeof data.filters === 'string'
+      ? data.filters
       : JSON.stringify(data.filters || []),
     record_limit: data.record_limit || 0,
     exclude_recent_phones: data.exclude_recent_phones !== undefined ? data.exclude_recent_phones : 1,
     id: data.id, // Se tiver id, será update, senão será insert
-  });
+  }, 'cmNonce');
 };
 
 export const deleteRecurring = (id: string) => {
-  return wpAjax('cm_delete_recurring', { id: parseInt(id) });
+  return wpAjax('cm_delete_recurring', { id: parseInt(id) }, 'cmNonce');
 };
 
 export const toggleRecurring = (id: string, active: boolean) => {
-  return wpAjax('cm_toggle_recurring', { id: parseInt(id), ativo: active ? 1 : 0 });
+  return wpAjax('cm_toggle_recurring', { id: parseInt(id), ativo: active ? 1 : 0 }, 'cmNonce');
 };
 
 export const executeRecurringNow = (id: string) => {
-  return wpAjax('cm_execute_recurring_now', { id: parseInt(id) });
+  return wpAjax('cm_execute_recurring_now', { id: parseInt(id) }, 'cmNonce');
 };
 
 // Campanha por arquivo
@@ -350,7 +358,20 @@ export const getBasesCarteira = (carteiraId: string) => {
 };
 
 export const vincularBaseCarteira = (carteiraId: string, bases: string[]) => {
-  return wpAjax('pc_vincular_base_carteira', { carteira_id: parseInt(carteiraId), bases });
+  console.log('🔵 [API] vincularBaseCarteira chamado:', { carteiraId, bases, basesType: typeof bases, isArray: Array.isArray(bases) });
+  
+  // Garante que bases é um array
+  const basesArray = Array.isArray(bases) ? bases : [];
+  
+  // Garante que carteiraId é um número válido
+  const carteiraIdNum = parseInt(carteiraId, 10);
+  if (isNaN(carteiraIdNum) || carteiraIdNum <= 0) {
+    throw new Error('ID da carteira inválido');
+  }
+  
+  console.log('🔵 [API] Enviando para wpAjax:', { carteira_id: carteiraIdNum, bases: basesArray });
+  
+  return wpAjax('pc_vincular_base_carteira', { carteira_id: carteiraIdNum, bases: basesArray });
 };
 
 // Iscas
@@ -376,7 +397,7 @@ export const deleteIsca = (id: string) => {
 
 // Validação de Base
 export const checkBaseUpdate = (tableName: string) => {
-  return wpAjax('cm_check_base_update', { table_name: tableName });
+  return wpAjax('cm_check_base_update', { table_name: tableName }, 'cmNonce');
 };
 
 // Ranking

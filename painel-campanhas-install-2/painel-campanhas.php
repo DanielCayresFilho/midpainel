@@ -1,14 +1,16 @@
 <?php
 /**
  * Plugin Name: Painel de Campanhas
- * Plugin URI: 
- * Description: Sistema completo de gerenciamento de campanhas com interface moderna e integracao com API
+ * Plugin URI:
+ * Description: Sistema COMPLETO e INDEPENDENTE de gerenciamento de campanhas multicanal (WhatsApp, RCS, SMS) com interface moderna, controle de custos, carteiras, aprovacao de campanhas e integracao com microservico NestJS. Suporta RCS Otima, WhatsApp Otima, RCS CDA, CDA, GOSAC, NOAH e Salesforce.
  * Version: 1.0.0
  * Author: Daniel Cayres
- * Author URI: 
+ * Author URI:
  * License: GPLv2 or later
  * License URI: http://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: painel-campanhas
+ * Requires PHP: 7.4
+ * Requires at least: 5.8
  */
 
 if (!defined('ABSPATH')) {
@@ -81,6 +83,8 @@ class Painel_Campanhas {
         add_filter('show_admin_bar', [$this, 'hide_admin_bar_on_plugin_pages']);
         
         // AJAX
+        add_action('wp_ajax_pc_test', [$this, 'handle_ajax_test']);
+        add_action('wp_ajax_nopriv_pc_test', [$this, 'handle_ajax_test']);
         add_action('wp_ajax_pc_login', [$this, 'handle_login']);
         add_action('wp_ajax_nopriv_pc_login', [$this, 'handle_login']);
         add_action('wp_ajax_pc_logout', [$this, 'handle_logout']);
@@ -311,7 +315,40 @@ class Painel_Campanhas {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        
+
+        // ============================================
+        // TABELA PRINCIPAL: envios_pendentes
+        // ============================================
+        $table_envios = $wpdb->prefix . 'envios_pendentes';
+        $sql_envios = "CREATE TABLE IF NOT EXISTS $table_envios (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            telefone varchar(20) NOT NULL,
+            nome varchar(255) DEFAULT NULL,
+            idgis_ambiente int(11) DEFAULT NULL,
+            id_carteira varchar(100) DEFAULT NULL,
+            idcob_contrato bigint(20) DEFAULT NULL,
+            cpf_cnpj varchar(20) DEFAULT NULL,
+            mensagem text,
+            fornecedor varchar(50) DEFAULT NULL,
+            agendamento_id varchar(100) DEFAULT NULL,
+            status varchar(50) DEFAULT 'pendente',
+            current_user_id bigint(20) DEFAULT NULL,
+            valido tinyint(1) DEFAULT 1,
+            data_cadastro datetime DEFAULT CURRENT_TIMESTAMP,
+            data_disparo datetime DEFAULT NULL,
+            resposta_api text DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY idx_telefone (telefone),
+            KEY idx_agendamento (agendamento_id),
+            KEY idx_status (status),
+            KEY idx_fornecedor (fornecedor),
+            KEY idx_user (current_user_id),
+            KEY idx_data_cadastro (data_cadastro),
+            KEY idx_idgis (idgis_ambiente),
+            KEY idx_carteira (id_carteira)
+        ) $charset_collate;";
+        dbDelta($sql_envios);
+
         // Tabela de custos por provider
         $table_custos = $wpdb->prefix . 'pc_custos_providers';
         $sql_custos = "CREATE TABLE IF NOT EXISTS $table_custos (
@@ -367,47 +404,7 @@ class Painel_Campanhas {
             KEY idx_base (nome_base)
         ) $charset_collate;";
         dbDelta($sql_carteiras_bases);
-        
-        // Adiciona coluna id_carteira na tabela envios_pendentes se não existir
-        // (Esta tabela é do Campaign Manager, então só tenta se ela existir)
-        $table_envios = $wpdb->prefix . 'envios_pendentes';
-        $table_exists = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
-             WHERE TABLE_SCHEMA = %s 
-             AND TABLE_NAME = %s",
-            DB_NAME,
-            $table_envios
-        ));
-        
-        if ($table_exists) {
-            $column_exists = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-                 WHERE TABLE_SCHEMA = %s 
-                 AND TABLE_NAME = %s 
-                 AND COLUMN_NAME = 'id_carteira'",
-                DB_NAME,
-                $table_envios
-            ));
-            
-            if (!$column_exists) {
-                // Verifica se a coluna idgis_ambiente existe antes de usar AFTER
-                $idgis_column_exists = $wpdb->get_var($wpdb->prepare(
-                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-                     WHERE TABLE_SCHEMA = %s 
-                     AND TABLE_NAME = %s 
-                     AND COLUMN_NAME = 'idgis_ambiente'",
-                    DB_NAME,
-                    $table_envios
-                ));
-                
-                if ($idgis_column_exists) {
-                    $wpdb->query("ALTER TABLE $table_envios ADD COLUMN id_carteira varchar(100) DEFAULT NULL AFTER idgis_ambiente");
-                } else {
-                    $wpdb->query("ALTER TABLE $table_envios ADD COLUMN id_carteira varchar(100) DEFAULT NULL");
-                }
-            }
-        }
-        
+
         // Tabela de iscas (baits)
         $table_baits = $wpdb->prefix . 'cm_baits';
         $sql_baits = "CREATE TABLE IF NOT EXISTS $table_baits (
@@ -1955,19 +1952,27 @@ class Painel_Campanhas {
 
     public function handle_get_filters() {
         check_ajax_referer('campaign-manager-nonce', 'nonce');
-        
+
         $table_name = sanitize_text_field($_POST['table_name'] ?? '');
-        
+
         if (empty($table_name)) {
             wp_send_json_error('Nome da tabela não fornecido');
         }
-        
+
         $filters = PC_Campaign_Filters::get_filterable_columns($table_name);
-        
+
         if (is_wp_error($filters)) {
             wp_send_json_error($filters->get_error_message());
         }
-        
+
+        // Garante que sempre retorna um array
+        if (!is_array($filters)) {
+            error_log('⚠️ [get_filters] Filtros não é array, convertendo. Tipo: ' . gettype($filters));
+            $filters = [];
+        }
+
+        error_log('🔍 [get_filters] Retornando ' . count($filters) . ' filtros para tabela: ' . $table_name);
+
         wp_send_json_success($filters);
     }
 
@@ -2038,32 +2043,45 @@ class Painel_Campanhas {
         // Compara com a data de hoje
         $today = current_time('Y-m-d');
         $ult_atualizacao_date = date('Y-m-d', strtotime($ult_atualizacao));
-        
+
         $is_updated = ($ult_atualizacao_date === $today);
-        
+
+        // Log para debug
+        error_log('🔍 [check_base_update] Table: ' . $table_name);
+        error_log('🔍 [check_base_update] Today: ' . $today);
+        error_log('🔍 [check_base_update] Last update: ' . $ult_atualizacao_date);
+        error_log('🔍 [check_base_update] Is updated: ' . ($is_updated ? 'true' : 'false'));
+
         wp_send_json_success([
             'is_updated' => $is_updated,
             'ult_atualizacao' => $ult_atualizacao_date,
             'today' => $today,
-            'message' => $is_updated 
-                ? 'Base está atualizada' 
+            'message' => $is_updated
+                ? 'Base está atualizada'
                 : "Base desatualizada. Última atualização: {$ult_atualizacao_date}"
         ]);
     }
 
     public function handle_get_template_content() {
         check_ajax_referer('campaign-manager-nonce', 'nonce');
-        
-        $template_id = intval($_POST['template_id'] ?? 0);
-        
+
+        $template_id_raw = $_POST['template_id'] ?? null;
+        error_log('📄 [get_template_content] Valor recebido: ' . var_export($template_id_raw, true) . ' | Tipo: ' . gettype($template_id_raw));
+
+        $template_id = intval($template_id_raw);
+        error_log('📄 [get_template_content] Após intval: ' . $template_id);
+
         if ($template_id <= 0) {
+            error_log('🔴 [get_template_content] ID inválido: ' . $template_id);
             wp_send_json_error('ID do template inválido.');
             return;
         }
-        
+
         $template_post = get_post($template_id);
-        
+        error_log('📄 [get_template_content] Post encontrado: ' . ($template_post ? 'Sim (tipo: ' . $template_post->post_type . ')' : 'Não'));
+
         if (!$template_post || $template_post->post_type !== 'message_template') {
+            error_log('🔴 [get_template_content] Template não encontrado ou tipo incorreto');
             wp_send_json_error('Template não encontrado.');
             return;
         }
@@ -4714,26 +4732,105 @@ class Painel_Campanhas {
     }
     
     public function handle_vincular_base_carteira() {
-        check_ajax_referer('pc_nonce', 'nonce');
-        global $wpdb;
-        
-        $carteira_id = intval($_POST['carteira_id'] ?? 0);
-        $bases = isset($_POST['bases']) && is_array($_POST['bases']) ? $_POST['bases'] : [];
-        
-        if (!$carteira_id) {
-            wp_send_json_error('ID da carteira inválido');
+        // Verifica nonce sem parar a execução para debug
+        $nonce_check = check_ajax_referer('pc_nonce', 'nonce', false);
+        if (!$nonce_check) {
+            error_log('🔴 [Vincular Base] Erro de nonce');
+            wp_send_json_error('Erro de autenticação. Por favor, recarregue a página.');
+            return;
         }
         
+        global $wpdb;
+
+        // Log de debug completo
+        error_log('🔵 [Vincular Base] POST completo: ' . json_encode($_POST));
+        
+        $carteira_id = intval($_POST['carteira_id'] ?? 0);
+        error_log('🔵 [Vincular Base] Carteira ID recebido: ' . $carteira_id);
+
+        if (!$carteira_id) {
+            error_log('🔴 [Vincular Base] ID da carteira inválido ou vazio');
+            wp_send_json_error('ID da carteira inválido');
+            return;
+        }
+
+        // Bases pode vir como JSON string (do React) ou como array (do PHP)
+        $bases_raw = $_POST['bases'] ?? null;
+        error_log('🔵 [Vincular Base] Bases raw recebido: ' . print_r($bases_raw, true));
+        error_log('🔵 [Vincular Base] Tipo do bases_raw: ' . gettype($bases_raw));
+        
+        $bases = [];
+        
+        if ($bases_raw !== null) {
+            if (is_string($bases_raw)) {
+                // Tenta decodificar JSON
+                $decoded = json_decode($bases_raw, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $bases = $decoded;
+                } else {
+                    // Se não for JSON válido, pode ser uma string única
+                    error_log('⚠️ [Vincular Base] JSON inválido ou não é array. Tentando como string única.');
+                    if (!empty(trim($bases_raw))) {
+                        $bases = [trim($bases_raw)];
+                    }
+                }
+            } elseif (is_array($bases_raw)) {
+                $bases = $bases_raw;
+            }
+        }
+
+        // Garante que é array e remove valores vazios
+        if (!is_array($bases)) {
+            $bases = [];
+        }
+        $bases = array_filter($bases, function($base) {
+            return !empty(trim($base));
+        });
+        $bases = array_values($bases); // Reindexa o array
+
+        error_log('🔵 [Vincular Base] Bases processadas: ' . json_encode($bases));
+        error_log('🔵 [Vincular Base] Total de bases: ' . count($bases));
+
         $table = $wpdb->prefix . 'pc_carteiras_bases';
-        
+
+        // Verifica se a tabela existe
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") === $table;
+        if (!$table_exists) {
+            error_log('🔴 [Vincular Base] Tabela não existe: ' . $table);
+            wp_send_json_error('Tabela de vínculos não encontrada. Por favor, reative o plugin.');
+            return;
+        }
+
         // Remove todos os vínculos existentes
-        $wpdb->delete($table, ['carteira_id' => $carteira_id], ['%d']);
-        
+        $deleted = $wpdb->delete($table, ['carteira_id' => $carteira_id], ['%d']);
+        error_log('🔵 [Vincular Base] Vínculos antigos deletados: ' . $deleted);
+
         // Adiciona novos vínculos
+        $inserted_count = 0;
+        $errors = [];
+        
         if (!empty($bases)) {
             foreach ($bases as $base) {
-                $base_clean = sanitize_text_field($base);
-                $wpdb->insert(
+                if (empty(trim($base))) {
+                    continue;
+                }
+                
+                $base_clean = sanitize_text_field(trim($base));
+                
+                // Verifica se já existe (evita duplicatas)
+                $exists = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM $table WHERE carteira_id = %d AND nome_base = %s",
+                    $carteira_id,
+                    $base_clean
+                ));
+                
+                if ($exists > 0) {
+                    error_log('⚠️ [Vincular Base] Base já existe, pulando: ' . $base_clean);
+                    $inserted_count++;
+                    continue;
+                }
+                
+                $result = $wpdb->insert(
                     $table,
                     [
                         'carteira_id' => $carteira_id,
@@ -4741,30 +4838,76 @@ class Painel_Campanhas {
                     ],
                     ['%d', '%s']
                 );
+                
+                if ($result !== false) {
+                    $inserted_count++;
+                    error_log('✅ [Vincular Base] Base inserida com sucesso: ' . $base_clean);
+                } else {
+                    $error_msg = $wpdb->last_error ?: 'Erro desconhecido';
+                    $errors[] = $base_clean . ': ' . $error_msg;
+                    error_log('🔴 [Vincular Base] Erro ao inserir base "' . $base_clean . '": ' . $error_msg);
+                }
             }
         }
-        
-        wp_send_json_success('Bases vinculadas com sucesso');
+
+        if (!empty($errors)) {
+            error_log('🔴 [Vincular Base] Erros ao inserir: ' . json_encode($errors));
+            wp_send_json_error('Algumas bases não puderam ser vinculadas: ' . implode(', ', $errors));
+            return;
+        }
+
+        error_log('✅ [Vincular Base] Sucesso! ' . $inserted_count . ' base(s) vinculada(s) à carteira ' . $carteira_id);
+        wp_send_json_success([
+            'message' => 'Bases vinculadas com sucesso',
+            'count' => $inserted_count
+        ]);
     }
     
     public function handle_get_bases_carteira() {
-        check_ajax_referer('pc_nonce', 'nonce');
+        // Verifica nonce sem parar a execução para debug
+        $nonce_check = check_ajax_referer('pc_nonce', 'nonce', false);
+        if (!$nonce_check) {
+            error_log('🔴 [Get Bases Carteira] Erro de nonce');
+            wp_send_json_error('Erro de autenticação. Por favor, recarregue a página.');
+            return;
+        }
+        
         global $wpdb;
 
         $carteira_id = intval($_POST['carteira_id'] ?? 0);
+        error_log('🔵 [Get Bases Carteira] Carteira ID recebido: ' . $carteira_id);
+
         if (!$carteira_id) {
+            error_log('🔴 [Get Bases Carteira] ID da carteira inválido');
             wp_send_json_error('ID da carteira inválido');
+            return;
         }
 
         $table = $wpdb->prefix . 'pc_carteiras_bases';
+        
+        // Verifica se a tabela existe
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") === $table;
+        if (!$table_exists) {
+            error_log('🔴 [Get Bases Carteira] Tabela não existe: ' . $table);
+            wp_send_json_error('Tabela de vínculos não encontrada. Por favor, reative o plugin.');
+            return;
+        }
+
         $bases = $wpdb->get_results(
-            $wpdb->prepare("SELECT nome_base FROM $table WHERE carteira_id = %d ORDER BY nome_base", $carteira_id),
+            $wpdb->prepare("SELECT DISTINCT nome_base FROM $table WHERE carteira_id = %d ORDER BY nome_base", $carteira_id),
             ARRAY_A
         );
 
         // Garante que sempre retorna um array, mesmo vazio
         $result = is_array($bases) ? $bases : [];
-        error_log('Bases carteira retornadas: ' . json_encode($result));
+        
+        error_log('🔵 [Get Bases Carteira] Query executada para carteira ' . $carteira_id);
+        error_log('🔵 [Get Bases Carteira] Total de bases encontradas: ' . count($result));
+        error_log('🔵 [Get Bases Carteira] Bases retornadas: ' . json_encode($result));
+        
+        if (empty($result)) {
+            error_log('⚠️ [Get Bases Carteira] Nenhuma base vinculada encontrada para carteira ' . $carteira_id);
+        }
 
         wp_send_json_success($result);
     }
@@ -6093,67 +6236,89 @@ class PC_Campaign_Filters {
     
     public static function get_filterable_columns($table_name) {
         global $wpdb;
-        
+
         if (empty($table_name)) {
             return new WP_Error('invalid_table', 'Nome de tabela inválido');
         }
-        
+
+        error_log('🔍 [get_filterable_columns] Buscando filtros para tabela: ' . $table_name);
+
         $columns_info = $wpdb->get_results($wpdb->prepare(
-            "SELECT COLUMN_NAME, DATA_TYPE 
-             FROM INFORMATION_SCHEMA.COLUMNS 
-             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s",
+            "SELECT COLUMN_NAME, DATA_TYPE
+             FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+             ORDER BY ORDINAL_POSITION",
             DB_NAME,
             $table_name
         ), ARRAY_A);
-        
+
         if (empty($columns_info)) {
+            error_log('🔴 [get_filterable_columns] Nenhuma coluna encontrada para tabela: ' . $table_name);
             return new WP_Error('no_columns', 'Não foi possível obter colunas da tabela');
         }
-        
+
+        error_log('🔍 [get_filterable_columns] Total de colunas na tabela: ' . count($columns_info));
+
         $numeric_types = ['int', 'bigint', 'decimal', 'float', 'double', 'tinyint', 'smallint', 'mediumint', 'real'];
         $categorical_threshold = 50;
         $filters = [];
-        
+
         foreach ($columns_info as $column) {
             $column_name = $column['COLUMN_NAME'];
             $data_type = strtolower($column['DATA_TYPE']);
-            
+
+            // Pula colunas excluídas
             if (in_array(strtoupper($column_name), self::$excluded_columns)) {
                 continue;
             }
-            
+
+            // Formata o label (capitaliza e substitui _ por espaço)
+            $label = ucwords(strtolower(str_replace('_', ' ', $column_name)));
+
             $is_numeric = in_array($data_type, $numeric_types);
             $distinct_count = $wpdb->get_var(
-                "SELECT COUNT(DISTINCT `{$column_name}`) 
-                 FROM `{$table_name}` 
+                "SELECT COUNT(DISTINCT `{$column_name}`)
+                 FROM `{$table_name}`
                  WHERE `{$column_name}` IS NOT NULL"
             );
-            
+
+            if ($distinct_count === null || $distinct_count == 0) {
+                // Pula colunas vazias
+                continue;
+            }
+
             if ($is_numeric && $distinct_count > $categorical_threshold) {
-                $filters[$column_name] = [
+                // Filtro numérico (range)
+                $filters[] = [
+                    'column' => $column_name,
+                    'label' => $label,
                     'type' => 'numeric',
                     'data_type' => $data_type
                 ];
             } else {
+                // Filtro categórico (select)
                 $values = $wpdb->get_col(
-                    "SELECT DISTINCT `{$column_name}` 
-                     FROM `{$table_name}` 
-                     WHERE `{$column_name}` IS NOT NULL 
-                     AND `{$column_name}` != '' 
+                    "SELECT DISTINCT `{$column_name}`
+                     FROM `{$table_name}`
+                     WHERE `{$column_name}` IS NOT NULL
+                     AND `{$column_name}` != ''
                      ORDER BY `{$column_name}` ASC
                      LIMIT 100"
                 );
-                
+
                 if (!empty($values)) {
-                    $filters[$column_name] = [
-                        'type' => 'categorical',
-                        'values' => $values,
-                        'count' => count($values)
+                    $filters[] = [
+                        'column' => $column_name,
+                        'label' => $label,
+                        'type' => 'select',
+                        'options' => $values
                     ];
                 }
             }
         }
-        
+
+        error_log('✅ [get_filterable_columns] Total de filtros disponíveis: ' . count($filters));
+
         return $filters;
     }
     
@@ -6325,12 +6490,32 @@ class PC_IDGIS_Mapper {
             $tabela_origem,
             $idgis_original
         ));
-        
+
         if ($mapped) {
             return intval($mapped);
         }
-        
+
         return $idgis_original;
+    }
+
+    /**
+     * Endpoint de teste para verificar se AJAX está funcionando
+     */
+    public function handle_ajax_test() {
+        error_log('🟢 [AJAX Test] Endpoint chamado com sucesso!');
+        error_log('🟢 [AJAX Test] POST data: ' . print_r($_POST, true));
+        error_log('🟢 [AJAX Test] User ID: ' . get_current_user_id());
+        error_log('🟢 [AJAX Test] Is user logged in: ' . (is_user_logged_in() ? 'YES' : 'NO'));
+
+        wp_send_json_success([
+            'message' => 'AJAX funcionando perfeitamente!',
+            'timestamp' => current_time('mysql'),
+            'user_id' => get_current_user_id(),
+            'is_logged_in' => is_user_logged_in(),
+            'site_url' => get_site_url(),
+            'home_url' => home_url(),
+            'admin_url' => admin_url('admin-ajax.php'),
+        ]);
     }
 }
 
@@ -6350,3 +6535,4 @@ function painel_campanhas() {
 
 // Inicia após plugins carregados
 add_action('plugins_loaded', 'painel_campanhas');
+

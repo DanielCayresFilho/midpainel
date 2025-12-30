@@ -1,95 +1,61 @@
-# Painel de Campanhas
+# Painel de Campanhas - Plugin WordPress
 
-Plugin WordPress completo para gerenciamento de campanhas de mensageria com interface moderna e integração com API NestJS.
+## 📋 Descrição
 
-## Características
+Sistema **COMPLETO e INDEPENDENTE** de gerenciamento de campanhas multicanal (WhatsApp, RCS, SMS) para WordPress.
 
-- ✅ Interface moderna e responsiva com Tailwind CSS
-- ✅ Sistema de rotas customizadas (`/painel/home`, `/painel/campanhas`, etc)
-- ✅ Autenticação integrada com WordPress
-- ✅ Controle de acesso (Admin vs Assinante)
-- ✅ Design dark mode
-- ✅ Animações e transições suaves
-- ✅ Integração com API Manager e outros plugins
+Este plugin **NÃO requer nenhum outro plugin** para funcionar. Todas as tabelas e funcionalidades são criadas e gerenciadas internamente.
 
-## Rotas Disponíveis
+## ✨ Características
 
-- `/painel/login` - Página de login
-- `/painel/home` - Dashboard principal
-- `/painel/campanhas` - Listagem de campanhas
-- `/painel/nova-campanha` - Criar nova campanha
-- `/painel/aprovar-campanhas` - Aprovar campanhas (apenas admin)
-- `/painel/mensagens` - Templates de mensagem
-- `/painel/relatorios` - Relatórios e estatísticas
-- `/painel/api-manager` - Gerenciamento de API (apenas admin)
-- `/painel/configuracoes` - Configurações do sistema (apenas admin)
+- ✅ **100% Independente** - Não precisa de outros plugins
+- 🎯 **Multi-canal** - WhatsApp, RCS, SMS
+- 💰 **Controle de Custos** - Gerenciamento de custos por provider
+- 👥 **Carteiras** - Organização por carteiras de clientes
+- ✅ **Aprovação de Campanhas** - Workflow de aprovação
+- 📊 **Relatórios Completos** - Dashboard com métricas em tempo real
+- 🔄 **Campanhas Recorrentes** - Agendamento automático
+- 🚫 **Blocklist** - Bloqueio de telefones e CPFs
+- 🎣 **Iscas** - Números de teste para campanhas
+- 🔗 **Integração Microserviço** - API REST para NestJS
 
-## Instalação
+## 🎯 Providers Suportados
 
-1. Copie a pasta `painel-campanhas` para `/wp-content/plugins/`
-2. Ative o plugin no WordPress
-3. Acesse `/painel/login` para fazer login
-4. Após login, você será redirecionado para `/painel/home`
+1. **RCS Ótima** - Templates RCS via API Ótima Digital
+2. **WhatsApp Ótima** - Mensagens HSM via API Ótima Digital
+3. **RCS CDA** - RCS via CromosApp
+4. **CDA** - Campanha direta via API CDA
+5. **GOSAC** - Plataforma WhatsApp GOSAC
+6. **NOAH** - Sistema de contatos NOAH
+7. **Salesforce** - Integração com Salesforce + Marketing Cloud
 
-## Permissões
+## 📦 Instalação
 
-- **Administradores**: Acesso completo a todas as páginas
-- **Assinantes**: Podem criar campanhas, ver relatórios e gerenciar mensagens
-- **Aprovação de Campanhas**: Apenas administradores
+1. Faça upload da pasta para /wp-content/plugins/
+2. Ative o plugin no painel do WordPress
+3. Acesse **Painel > Dashboard** no menu lateral
 
-## Integração com Outros Plugins
+## 🗄️ Tabelas Criadas Automaticamente
 
-O plugin integra-se com:
-- **API Consumer Manager**: Para gerenciar credenciais de API
-- **Get Agendamentos**: Para listar e gerenciar campanhas
-- **Message Template Manager**: Para templates de mensagem (em desenvolvimento)
+- wp_envios_pendentes - Tabela principal de campanhas
+- wp_pc_custos_providers - Custos por provider
+- wp_pc_orcamentos_bases - Orçamentos por base
+- wp_pc_carteiras - Cadastro de carteiras
+- wp_cm_baits - Números de teste
+- wp_pc_blocklist - Lista de bloqueio
+- wp_cm_recurring_campaigns - Campanhas recorrentes
 
-## Estrutura de Arquivos
+## 🚀 Como Usar
 
-```
-painel-campanhas/
-├── painel-campanhas.php      # Arquivo principal do plugin
-├── templates/                 # Templates das páginas
-│   ├── base.php              # Template base
-│   ├── login.php             # Página de login
-│   ├── home.php              # Dashboard
-│   ├── campanhas.php         # Listagem de campanhas
-│   ├── nova-campanha.php     # Criar campanha
-│   ├── aprovar-campanhas.php # Aprovar campanhas
-│   ├── mensagens.php         # Templates de mensagem
-│   ├── relatorios.php        # Relatórios
-│   ├── api-manager.php       # API Manager
-│   └── configuracoes.php     # Configurações
-├── assets/
-│   ├── css/
-│   │   └── style.css         # Estilos customizados
-│   └── js/
-│       └── main.js           # JavaScript principal
-└── README.md                 # Este arquivo
-```
+1. Configure o API Manager com credenciais dos providers
+2. Cadastre carteiras e vincule às bases
+3. Crie campanhas e aprove para envio
+4. Acompanhe relatórios em tempo real
 
-## Desenvolvimento
+## 🔒 Totalmente Independente
 
-### Adicionar Nova Página
+Este plugin cria TODAS as tabelas necessárias automaticamente.
+Não depende de nenhum outro plugin para funcionar!
 
-1. Crie o template em `templates/nova-pagina.php`
-2. Adicione a rota em `add_rewrite_rules()`:
-   ```php
-   add_rewrite_rule('^painel/nova-pagina/?$', 'index.php?pc_page=nova-pagina', 'top');
-   ```
-3. Adicione o link na sidebar em `templates/base.php`
-
-### Customizar Estilos
-
-Edite `assets/css/style.css` ou use classes Tailwind CSS diretamente nos templates.
-
-## Requisitos
-
-- WordPress 5.0+
-- PHP 7.4+
-- Plugins integrados (API Consumer Manager, Get Agendamentos)
-
-## Licença
-
-Este plugin é desenvolvido para uso interno.
-
+---
+**Versão:** 1.0.0 | **Autor:** Daniel Cayres

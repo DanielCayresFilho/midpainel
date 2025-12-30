@@ -63,6 +63,7 @@ export default function Configuracoes() {
     descricao: "" 
   });
   const [selectedBases, setSelectedBases] = useState<string[]>([]);
+  const [searchBase, setSearchBase] = useState("");
 
   // Buscar carteiras
   const { data: carteiras = [], isLoading } = useQuery({
@@ -182,24 +183,69 @@ export default function Configuracoes() {
   };
 
   const vincularMutation = useMutation({
-    mutationFn: ({ carteiraId, bases }: { carteiraId: string; bases: string[] }) =>
-      vincularBaseCarteira(carteiraId, bases),
-    onSuccess: () => {
-      toast({ title: "Bases vinculadas com sucesso!" });
+    mutationFn: ({ carteiraId, bases }: { carteiraId: string; bases: string[] }) => {
+      console.log('🔵 [Configuracoes] Enviando requisição:', { carteiraId, bases });
+      return vincularBaseCarteira(carteiraId, bases);
+    },
+    onSuccess: (data: any) => {
+      console.log('✅ [Configuracoes] Vínculos salvos com sucesso:', data);
+      toast({ 
+        title: "Bases vinculadas com sucesso!",
+        description: data?.count ? `${data.count} base(s) vinculada(s)` : undefined
+      });
       queryClient.invalidateQueries({ queryKey: ['bases-carteira', selectedCarteiraId] });
+      queryClient.invalidateQueries({ queryKey: ['carteiras'] });
       setIsBasesDialogOpen(false);
     },
     onError: (error: any) => {
+      console.error('🔴 [Configuracoes] Erro ao vincular bases:', error);
       toast({
         title: "Erro ao vincular bases",
-        description: error.message || "Erro ao vincular bases",
+        description: error.message || "Erro ao vincular bases. Verifique o console para mais detalhes.",
         variant: "destructive",
       });
     },
   });
 
   const handleSaveBases = () => {
-    if (!selectedCarteiraId) return;
+    if (!selectedCarteiraId) {
+      toast({
+        title: "Erro",
+        description: "Nenhuma carteira selecionada",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!Array.isArray(selectedBases) || selectedBases.length === 0) {
+      toast({
+        title: "Atenção",
+        description: "Selecione pelo menos uma base para vincular",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Log detalhado das bases que serão salvas
+    console.log('🔵 [Configuracoes] Salvando vínculos:', {
+      carteiraId: selectedCarteiraId,
+      bases: selectedBases,
+      basesCount: selectedBases.length,
+      basesDetalhadas: selectedBases.map((baseName, idx) => ({
+        index: idx,
+        nome: baseName,
+        tipo: typeof baseName,
+        length: String(baseName).length
+      }))
+    });
+    
+    // Verifica se as bases selecionadas existem na lista de bases disponíveis
+    const basesDisponiveisNomes = bases.map((b: any) => String(b?.name || b?.id || ''));
+    const basesNaoEncontradas = selectedBases.filter(baseName => !basesDisponiveisNomes.includes(baseName));
+    if (basesNaoEncontradas.length > 0) {
+      console.warn('⚠️ [Configuracoes] Algumas bases selecionadas não foram encontradas na lista:', basesNaoEncontradas);
+    }
+    
     vincularMutation.mutate({ carteiraId: selectedCarteiraId, bases: selectedBases });
   };
 
@@ -230,6 +276,7 @@ export default function Configuracoes() {
 
   const openBasesDialog = (carteiraId: string) => {
     setSelectedCarteiraId(carteiraId);
+    setSearchBase(""); // Limpa o campo de busca
     setIsBasesDialogOpen(true);
   };
 
@@ -402,58 +449,96 @@ export default function Configuracoes() {
 
       {/* Bases Dialog */}
       <Dialog open={isBasesDialogOpen} onOpenChange={setIsBasesDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Vincular Bases</DialogTitle>
             <DialogDescription>
-              Selecione as bases de dados para vincular a esta carteira
+              Selecione as bases de dados para vincular a esta carteira ({selectedBases.length} selecionada{selectedBases.length !== 1 ? 's' : ''})
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
+
+          {/* Search and Actions */}
+          <div className="space-y-3 py-2">
+            <Input
+              placeholder="Buscar base..."
+              value={searchBase}
+              onChange={(e) => setSearchBase(e.target.value)}
+              className="w-full"
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const filteredBases = bases.filter((base: any) =>
+                    String(base?.name || '').toLowerCase().includes(searchBase.toLowerCase())
+                  );
+                  setSelectedBases(filteredBases.map((base: any) => String(base.name)));
+                }}
+              >
+                Selecionar Todas
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedBases([])}
+              >
+                Desmarcar Todas
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
             {!Array.isArray(bases) || bases.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 Nenhuma base disponível
               </p>
             ) : (
-              <div className="space-y-2">
-                {bases.map((base: any, index: number) => {
-                  try {
-                    // Garante que todos os valores sejam strings
-                    const baseId = base?.id ? String(base.id) : `base-${index}`;
-                    const baseName = base?.name ? String(base.name) : base?.id ? String(base.id) : 'Base sem nome';
-                    const baseRecords = base?.records ? String(base.records) : null;
+              <>
+                {bases
+                  .filter((base: any) =>
+                    String(base?.name || '').toLowerCase().includes(searchBase.toLowerCase())
+                  )
+                  .map((base: any, index: number) => {
+                    try {
+                      const baseId = base?.id ? String(base.id) : `base-${index}`;
+                      const baseName = base?.name ? String(base.name) : base?.id ? String(base.id) : 'Base sem nome';
+                      const baseRecords = base?.records ? String(base.records) : null;
 
-                    return (
-                      <label
-                        key={baseId}
-                        className="flex items-center space-x-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
-                      >
-                        <Checkbox
-                          checked={selectedBases.includes(baseName)}
-                          onCheckedChange={() => handleToggleBase(baseName)}
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{baseName}</p>
-                          {baseRecords && (
-                            <p className="text-xs text-muted-foreground">{baseRecords} registros</p>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  } catch (error) {
-                    console.error('Erro ao renderizar base:', base, error);
-                    return null;
-                  }
-                })}
-              </div>
+                      return (
+                        <label
+                          key={baseId}
+                          className="flex items-center space-x-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
+                          <Checkbox
+                            checked={selectedBases.includes(baseName)}
+                            onCheckedChange={() => handleToggleBase(baseName)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{baseName}</p>
+                            {baseRecords && (
+                              <p className="text-xs text-muted-foreground">{baseRecords} registros</p>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    } catch (error) {
+                      console.error('Erro ao renderizar base:', base, error);
+                      return null;
+                    }
+                  })}
+              </>
             )}
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setIsBasesDialogOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={handleSaveBases} className="gradient-primary hover:opacity-90">
-              Salvar Vínculos
+              Salvar {selectedBases.length} Base{selectedBases.length !== 1 ? 's' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>

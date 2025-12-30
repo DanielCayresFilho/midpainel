@@ -163,7 +163,7 @@ export function Sidebar() {
                                 to={child.href}
                                 onClick={() => setIsMobileOpen(false)}
                                 className={cn(
-                                  "block rounded-lg px-3 py-2 text-sm transition-colors",
+                                  "block rounded-lg px-3 py-2 text-sm transition-colors no-underline",
                                   isActive(child.href)
                                     ? "bg-sidebar-accent text-sidebar-primary font-medium"
                                     : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -181,7 +181,7 @@ export function Sidebar() {
                       to={item.href}
                       onClick={() => setIsMobileOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors no-underline",
                         isActive(item.href)
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"

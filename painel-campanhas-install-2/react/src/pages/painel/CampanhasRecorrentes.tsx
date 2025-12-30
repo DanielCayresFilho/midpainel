@@ -281,7 +281,7 @@ export default function CampanhasRecorrentes() {
         <div className="grid gap-4">
           {campaigns.map((campaign: any, index: number) => (
             <Card
-              key={campaign.id}
+              key={`campaign-${campaign.id || index}`}
               className="animate-slide-in"
               style={{ animationDelay: `${index * 100}ms` }}
             >
@@ -412,6 +412,9 @@ export default function CampanhasRecorrentes() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="OTIMA_RCS">Ótima RCS</SelectItem>
+                    <SelectItem value="OTIMA_WPP">Ótima WPP</SelectItem>
+                    <SelectItem value="CDA_RCS">CDA RCS</SelectItem>
                     <SelectItem value="CDA">CDA</SelectItem>
                     <SelectItem value="GOSAC">GOSAC</SelectItem>
                     <SelectItem value="NOAH">NOAH</SelectItem>
@@ -440,8 +443,8 @@ export default function CampanhasRecorrentes() {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bases.map((base: any) => (
-                    <SelectItem key={base.id} value={base.id}>
+                  {bases.map((base: any, idx: number) => (
+                    <SelectItem key={`base-${base.id || idx}`} value={base.id}>
                       {base.name}
                     </SelectItem>
                   ))}
@@ -458,8 +461,8 @@ export default function CampanhasRecorrentes() {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
+                  {templates.map((t, idx: number) => (
+                    <SelectItem key={`template-${t.id || idx}`} value={t.id}>
                       {t.name}
                     </SelectItem>
                   ))}

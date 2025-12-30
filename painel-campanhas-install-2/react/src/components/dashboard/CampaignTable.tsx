@@ -98,7 +98,7 @@ export function CampaignTable({ campaigns, showActions = true }: CampaignTablePr
 }
 
 function StatusBadge({ status }: { status: Campaign["status"] }) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || { label: status, variant: "secondary" as const };
   return (
     <Badge
       variant={config.variant}

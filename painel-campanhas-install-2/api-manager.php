@@ -213,20 +213,16 @@ ob_start();
                         <i class="fas fa-info-circle mr-2"></i>
                         API: https://services.otima.digital/v1/whatsapp/bulk/message/hsm
                     </p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Token de Autenticação *</label>
                             <input type="text" name="otima_wpp_token" value="<?php echo esc_attr($static_credentials['otima_wpp_token'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="Bearer token para autenticação">
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Broker Code</label>
-                            <input type="text" name="otima_wpp_broker_code" value="<?php echo esc_attr($static_credentials['otima_wpp_broker_code'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Customer Code</label>
-                            <input type="text" name="otima_wpp_customer_code" value="<?php echo esc_attr($static_credentials['otima_wpp_customer_code'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                        </div>
                     </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        <i class="fas fa-lightbulb mr-1"></i>
+                        Os códigos broker_code e customer_code são passados no JSON do disparo.
+                    </p>
                 </div>
 
                 <!-- Ótima RCS -->

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, X } from "lucide-react";
@@ -29,6 +29,9 @@ import {
 } from "@/lib/api";
 
 const providers = [
+  { id: "OTIMA_RCS", name: "Ótima RCS" },
+  { id: "OTIMA_WPP", name: "Ótima WPP" },
+  { id: "CDA_RCS", name: "CDA RCS" },
   { id: "CDA", name: "CDA" },
   { id: "GOSAC", name: "GOSAC" },
   { id: "NOAH", name: "NOAH" },
@@ -92,17 +95,20 @@ export default function CampanhaArquivo() {
     : [];
 
   // Verificar atualização da base quando selecionada
-  useQuery({
+  const { data: baseUpdateData } = useQuery({
     queryKey: ['base-update', tableName],
     queryFn: () => checkBaseUpdate(tableName),
     enabled: !!tableName,
-    onSuccess: (data) => {
-      setBaseUpdateStatus({
-        isUpdated: data.is_updated,
-        message: data.message || '',
-      });
-    },
   });
+
+  useEffect(() => {
+    if (baseUpdateData) {
+      setBaseUpdateStatus({
+        isUpdated: baseUpdateData.is_updated,
+        message: baseUpdateData.message || '',
+      });
+    }
+  }, [baseUpdateData]);
 
   const uploadMutation = useMutation({
     mutationFn: ({ file, matchField }: { file: File; matchField: string }) => 
