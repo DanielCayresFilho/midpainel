@@ -4604,13 +4604,13 @@ class Painel_Campanhas {
         }
         
         $table = $wpdb->prefix . 'pc_carteiras';
-        
-        // Verifica se ID já existe
+
+        // Verifica se ID já existe (apenas entre carteiras ativas)
         $exists = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM $table WHERE id_carteira = %s",
+            "SELECT id FROM $table WHERE id_carteira = %s AND ativo = 1",
             $id_carteira
         ));
-        
+
         if ($exists) {
             wp_send_json_error('ID da carteira já existe');
         }
@@ -4689,13 +4689,13 @@ class Painel_Campanhas {
         }
         
         $table = $wpdb->prefix . 'pc_carteiras';
-        
-        // Verifica se outro registro já usa esse ID
+
+        // Verifica se outro registro ativo já usa esse ID
         $exists = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM $table WHERE id_carteira = %s AND id != %d",
+            "SELECT id FROM $table WHERE id_carteira = %s AND id != %d AND ativo = 1",
             $id_carteira, $id
         ));
-        
+
         if ($exists) {
             wp_send_json_error('ID da carteira já está em uso');
         }

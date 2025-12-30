@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Filter, BarChart3, PieChart, TrendingUp, Calendar, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -34,9 +34,26 @@ import { getReportData, getReport1x1Stats } from "@/lib/api";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--info))", "hsl(var(--success))", "hsl(var(--warning))"];
 
+// Função helper para obter primeiro dia do mês atual
+const getFirstDayOfMonth = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+};
+
+// Função helper para obter data de hoje
+const getToday = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Relatorios() {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(getFirstDayOfMonth());
+  const [dateTo, setDateTo] = useState(getToday());
   const [provider, setProvider] = useState("all");
   const [status, setStatus] = useState("all");
 
