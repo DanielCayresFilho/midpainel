@@ -411,12 +411,31 @@ class Painel_Campanhas {
             id bigint(20) NOT NULL AUTO_INCREMENT,
             telefone varchar(20) NOT NULL,
             nome varchar(255) NOT NULL,
-            idgis_ambiente int(11) NOT NULL,
+            idgis_ambiente int(11) DEFAULT NULL,
+            id_carteira bigint(20) DEFAULT NULL,
+            cpf varchar(20) DEFAULT NULL,
             ativo tinyint(1) DEFAULT 1,
             criado_em datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
+            PRIMARY KEY (id),
+            KEY idx_carteira (id_carteira)
         ) $charset_collate;";
         dbDelta($sql_baits);
+
+        // Migração: Adiciona coluna id_carteira se não existir (para atualizações)
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM $table_baits LIKE 'id_carteira'");
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE $table_baits ADD COLUMN id_carteira bigint(20) DEFAULT NULL AFTER idgis_ambiente");
+            $wpdb->query("ALTER TABLE $table_baits ADD KEY idx_carteira (id_carteira)");
+        }
+
+        // Migração: Adiciona coluna cpf se não existir
+        $cpf_exists = $wpdb->get_results("SHOW COLUMNS FROM $table_baits LIKE 'cpf'");
+        if (empty($cpf_exists)) {
+            $wpdb->query("ALTER TABLE $table_baits ADD COLUMN cpf varchar(20) DEFAULT NULL AFTER id_carteira");
+        }
+
+        // Migração: Torna idgis_ambiente nullable
+        $wpdb->query("ALTER TABLE $table_baits MODIFY COLUMN idgis_ambiente int(11) DEFAULT NULL");
         
         // Tabela de mapeamento IDGIS
         $table_idgis_mappings = $wpdb->prefix . 'cm_idgis_mappings';
@@ -5248,37 +5267,29 @@ class Painel_Campanhas {
                 continue; // CPF inválido
             }
             
-            // Valida telefone (deve ter DDD e código do país - formato: 55 + DDD + número)
+            // Valida telefone (aceita com ou sem código do país 55)
             $telefone = preg_replace('/[^0-9]/', '', $record['telefone'] ?? '');
             if (empty($telefone)) {
                 $invalid_records[] = "Linha $line: Telefone vazio";
                 continue;
             }
-            
-            // Telefone deve ter código do país (55) + DDD (2 dígitos) + número (9 ou 10 dígitos)
-            // Formato esperado: 55 + DDD + número = mínimo 13 dígitos (55 + 2 + 9) ou máximo 14 dígitos (55 + 2 + 10)
-            if (strlen($telefone) < 13 || strlen($telefone) > 14) {
-                $invalid_records[] = "Linha $line: Telefone deve ter código do país (55) + DDD + número (formato: 5511999999999)";
+
+            // Remove código do país 55 se presente
+            if (strlen($telefone) >= 12 && substr($telefone, 0, 2) === '55') {
+                $telefone = substr($telefone, 2);
+            }
+
+            // Telefone deve ter DDD (2 dígitos) + número (8 ou 9 dígitos) = 10 ou 11 dígitos
+            if (strlen($telefone) < 10 || strlen($telefone) > 11) {
+                $invalid_records[] = "Linha $line: Telefone inválido (deve ter DDD + número: 11999999999 ou 1199999999)";
                 continue;
             }
-            
-            // Verifica se começa com código do país 55
-            if (substr($telefone, 0, 2) !== '55') {
-                $invalid_records[] = "Linha $line: Telefone deve começar com código do país 55";
+
+            // Valida DDD (primeiro dígito deve ser 1-9)
+            if ($telefone[0] < '1' || $telefone[0] > '9') {
+                $invalid_records[] = "Linha $line: DDD inválido (deve começar com dígito 1-9)";
                 continue;
             }
-            
-            // Remove código do país para armazenar apenas DDD + número
-            $telefone_sem_codigo = substr($telefone, 2);
-            
-            // Valida se tem DDD (2 dígitos) + número (9 ou 10 dígitos)
-            if (strlen($telefone_sem_codigo) < 11 || strlen($telefone_sem_codigo) > 12) {
-                $invalid_records[] = "Linha $line: Telefone inválido após código do país (deve ter DDD + número: 11999999999)";
-                continue;
-            }
-            
-            // Usa o telefone sem código do país para armazenar (formato: DDD + número)
-            $telefone = $telefone_sem_codigo;
             
             // Busca id_carteira se não informado
             $id_carteira = $record['id_carteira'] ?? '';

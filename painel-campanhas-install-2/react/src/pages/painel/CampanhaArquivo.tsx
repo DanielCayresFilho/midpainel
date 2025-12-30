@@ -88,9 +88,14 @@ export default function CampanhaArquivo() {
   // Bases filtradas por carteira
   const bases = carteira
     ? (basesCarteira.length > 0
-        ? allBases.filter((base: any) =>
-            basesCarteira.some((bc: any) => bc.nome_base === base.name)
-          )
+        ? allBases.filter((base: any) => {
+            // Normaliza nomes para comparação (remove espaços e ignora case)
+            const baseName = (base.name || '').trim().toLowerCase();
+            return basesCarteira.some((bc: any) => {
+              const bcName = (bc.nome_base || '').trim().toLowerCase();
+              return bcName === baseName;
+            });
+          })
         : [])
     : [];
 
