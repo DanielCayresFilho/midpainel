@@ -207,6 +207,92 @@ https://binaries.prisma.sh/.../schema-engine.gz.sha256 - 403 Forbidden
 
 ---
 
+### 6. **JSON Encoding em Nomes de Bases - CRÍTICO**
+
+#### ❌ Problema Identificado
+
+Bases não apareciam mesmo estando vinculadas à carteira. Console mostrava:
+```
+🔵 [NovaCampanha] Nomes das bases vinculadas (normalizados): ['[\\"vw_base_sms_ativo_bv_veiculos_adm\\"]']
+```
+
+**Causa Raiz:**
+- Banco de dados continha nomes de bases com JSON encoding indevido: `'["nome_base"]'` ao invés de `'nome_base'`
+- Comparação exata falhava: `'vw_base_sms_ativo_bv_veiculos_adm' !== '["vw_base_sms_ativo_bv_veiculos_adm"]'`
+- Possível causa: versão anterior do código ou teste manual com dados mal formatados
+
+#### ✅ Solução Implementada
+
+**Arquivo:** `painel-campanhas-install-2/painel-campanhas.php`
+
+**1. Sanitização ao Salvar (linhas 4869-4883):**
+```php
+// 🔧 FIX: Se a base parece ser JSON (começa com [ ou "), tenta decodificar
+if (strlen($base_clean) > 0 && ($base_clean[0] === '[' || $base_clean[0] === '"')) {
+    $decoded = json_decode($base_clean, true);
+    if (json_last_error() === JSON_ERROR_NONE) {
+        if (is_array($decoded) && count($decoded) === 1 && is_string($decoded[0])) {
+            // Era um array com um único elemento string
+            $base_clean = sanitize_text_field(trim($decoded[0]));
+            error_log('🔧 [Vincular Base] Corrigido JSON-encoded base: ' . $base . ' -> ' . $base_clean);
+        } elseif (is_string($decoded)) {
+            // Era uma string JSON-encoded
+            $base_clean = sanitize_text_field(trim($decoded));
+            error_log('🔧 [Vincular Base] Corrigido JSON-encoded base: ' . $base . ' -> ' . $base_clean);
+        }
+    }
+}
+```
+
+**2. Limpeza Automática ao Recuperar (linhas 4977-5016):**
+```php
+// 🔧 FIX: Limpa bases com JSON encoding indevido
+$needs_cleanup = false;
+foreach ($result as $idx => $base_row) {
+    $nome_base = $base_row['nome_base'];
+
+    // Detecta se a base está JSON-encoded indevidamente
+    if (strlen($nome_base) > 0 && ($nome_base[0] === '[' || $nome_base[0] === '"')) {
+        $decoded = json_decode($nome_base, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $nome_correto = null;
+
+            if (is_array($decoded) && count($decoded) === 1 && is_string($decoded[0])) {
+                $nome_correto = trim($decoded[0]);
+            } elseif (is_string($decoded)) {
+                $nome_correto = trim($decoded);
+            }
+
+            if ($nome_correto) {
+                // Atualiza no banco de dados
+                $wpdb->update(
+                    $table,
+                    ['nome_base' => $nome_correto],
+                    ['id' => $base_row['id']],
+                    ['%s'],
+                    ['%d']
+                );
+
+                // Atualiza no resultado
+                $result[$idx]['nome_base'] = $nome_correto;
+                $needs_cleanup = true;
+            }
+        }
+    }
+}
+```
+
+**Resultado:**
+- ✅ Novas bases sempre salvas com nomes limpos
+- ✅ Dados corrompidos detectados e corrigidos automaticamente na primeira leitura
+- ✅ Atualização automática no banco de dados
+- ✅ Match exato funciona corretamente
+- ✅ Bases vinculadas agora aparecem em NovaCampanha e CampanhaArquivo
+
+**Commit:** `6cf1f93` - "fix: corrigir problema de JSON encoding em nomes de bases"
+
+---
+
 ## 🚀 Como Instalar o Plugin Agora
 
 ### Passo 1: Build do Plugin
@@ -277,6 +363,7 @@ fix: corrigir carregamento do React no plugin WordPress
 - ✅ `package.json` (versão exata do Prisma)
 - ✅ `painel-campanhas-install-2/react/src/index.css` (ordem @import)
 - ✅ `painel-campanhas-install-2/react/vite.config.ts` (base relativo)
+- ✅ `painel-campanhas-install-2/painel-campanhas.php` (fix JSON encoding, fix match parcial, migrations)
 
 ---
 
@@ -336,6 +423,13 @@ fix: corrigir carregamento do React no plugin WordPress
 - [x] Dependências instaladas
 - [x] Commits feitos e pushed
 - [x] Plugin ZIP gerado e testado
+- [x] Problema JSON encoding em bases (CRÍTICO) ✅ **CORRIGIDO**
+- [x] Match parcial/exato de bases ✅ **CORRIGIDO**
+- [x] Carteiras acumulando bases antigas ✅ **CORRIGIDO**
+- [x] CSV validation muito restritiva ✅ **CORRIGIDO**
+- [x] Coluna id_carteira faltando em iscas ✅ **CORRIGIDO**
+- [x] Campanhas Recorrentes UI incorreta ✅ **CORRIGIDO**
+- [x] Relatórios sem data padrão ✅ **CORRIGIDO**
 - [ ] Prisma Client gerado (bloqueado)
 - [ ] Build NestJS (depende do Prisma)
 
