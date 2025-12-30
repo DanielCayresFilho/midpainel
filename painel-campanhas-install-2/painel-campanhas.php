@@ -378,18 +378,14 @@ class Painel_Campanhas {
         ) $charset_collate;";
         dbDelta($sql_orcamentos);
         
-        // 🔥 DROPA E RECRIA TABELAS DO ZERO - RESET COMPLETO
-        $table_carteiras = $wpdb->prefix . 'pc_carteiras';
-        $table_carteiras_bases = $wpdb->prefix . 'pc_carteiras_bases';
+        // ✨ CRIA TABELAS V2 - COMPLETAMENTE NOVAS (antigas não são tocadas)
+        $table_carteiras = $wpdb->prefix . 'pc_carteiras_v2';
+        $table_carteiras_bases = $wpdb->prefix . 'pc_carteiras_bases_v2';
 
-        // Remove tabelas antigas
-        $wpdb->query("DROP TABLE IF EXISTS $table_carteiras_bases");
-        $wpdb->query("DROP TABLE IF EXISTS $table_carteiras");
+        error_log('✨ [Plugin] Criando tabelas V2 (novas e limpas)');
 
-        error_log('🔥 [Plugin] RESET COMPLETO - Tabelas antigas dropadas!');
-
-        // Cria tabela de carteiras DO ZERO
-        $sql_carteiras = "CREATE TABLE $table_carteiras (
+        // Cria tabela de carteiras V2
+        $sql_carteiras = "CREATE TABLE IF NOT EXISTS $table_carteiras (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             nome varchar(255) NOT NULL,
             id_carteira varchar(100) NOT NULL,
@@ -401,8 +397,8 @@ class Painel_Campanhas {
         ) $charset_collate;";
         $wpdb->query($sql_carteiras);
 
-        // Cria tabela de vínculos DO ZERO
-        $sql_carteiras_bases = "CREATE TABLE $table_carteiras_bases (
+        // Cria tabela de vínculos V2
+        $sql_carteiras_bases = "CREATE TABLE IF NOT EXISTS $table_carteiras_bases (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             carteira_id bigint(20) NOT NULL,
             nome_base varchar(150) NOT NULL,
@@ -412,7 +408,7 @@ class Painel_Campanhas {
         ) $charset_collate;";
         $wpdb->query($sql_carteiras_bases);
 
-        error_log('✅ [Plugin] Tabelas novas criadas! Sistema LIMPO!');
+        error_log('✅ [Plugin] Tabelas V2 prontas! Usando tabelas NOVAS sem dados antigos!');
 
         // Tabela de iscas (baits)
         $table_baits = $wpdb->prefix . 'cm_baits';
@@ -1506,7 +1502,7 @@ class Painel_Campanhas {
                 // Busca id_carteira se não informado
                 $id_carteira = $record['id_carteira'] ?? '';
                 if (empty($id_carteira) && !empty($record['carteira'])) {
-                    $carteiras_table = $wpdb->prefix . 'pc_carteiras';
+                    $carteiras_table = $wpdb->prefix . 'pc_carteiras_v2';
                     $carteira = $wpdb->get_row($wpdb->prepare(
                         "SELECT id_carteira FROM $carteiras_table WHERE nome = %s AND ativo = 1 LIMIT 1",
                         $record['carteira']
@@ -4543,8 +4539,8 @@ class Painel_Campanhas {
             $total_orcamento += $orcamento_valor;
             
             // Busca carteiras vinculadas à base
-            $carteiras_table = $wpdb->prefix . 'pc_carteiras';
-            $carteiras_bases_table = $wpdb->prefix . 'pc_carteiras_bases';
+            $carteiras_table = $wpdb->prefix . 'pc_carteiras_v2';
+            $carteiras_bases_table = $wpdb->prefix . 'pc_carteiras_bases_v2';
             
             // Busca id_carteira das carteiras vinculadas
             $carteiras = $wpdb->get_results($wpdb->prepare(
@@ -4612,7 +4608,7 @@ class Painel_Campanhas {
             wp_send_json_error('Nome e ID da carteira são obrigatórios');
         }
         
-        $table = $wpdb->prefix . 'pc_carteiras';
+        $table = $wpdb->prefix . 'pc_carteiras_v2';
 
         // Verifica se ID já existe (apenas entre carteiras ativas)
         $exists = $wpdb->get_var($wpdb->prepare(
@@ -4653,7 +4649,7 @@ class Painel_Campanhas {
         check_ajax_referer('pc_nonce', 'nonce');
         global $wpdb;
         
-        $table = $wpdb->prefix . 'pc_carteiras';
+        $table = $wpdb->prefix . 'pc_carteiras_v2';
         $carteiras = $wpdb->get_results(
             "SELECT * FROM $table WHERE ativo = 1 ORDER BY nome",
             ARRAY_A
@@ -4671,7 +4667,7 @@ class Painel_Campanhas {
             wp_send_json_error('ID inválido');
         }
         
-        $table = $wpdb->prefix . 'pc_carteiras';
+        $table = $wpdb->prefix . 'pc_carteiras_v2';
         $carteira = $wpdb->get_row(
             $wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id),
             ARRAY_A
@@ -4697,7 +4693,7 @@ class Painel_Campanhas {
             wp_send_json_error('Dados inválidos');
         }
         
-        $table = $wpdb->prefix . 'pc_carteiras';
+        $table = $wpdb->prefix . 'pc_carteiras_v2';
 
         // Verifica se outro registro ativo já usa esse ID
         $exists = $wpdb->get_var($wpdb->prepare(
@@ -4737,8 +4733,8 @@ class Painel_Campanhas {
             wp_send_json_error('ID inválido');
         }
         
-        $table_carteiras = $wpdb->prefix . 'pc_carteiras';
-        $table_vinculos = $wpdb->prefix . 'pc_carteiras_bases';
+        $table_carteiras = $wpdb->prefix . 'pc_carteiras_v2';
+        $table_vinculos = $wpdb->prefix . 'pc_carteiras_bases_v2';
         
         // Remove vínculos
         $wpdb->delete($table_vinculos, ['carteira_id' => $id], ['%d']);
@@ -4797,7 +4793,7 @@ class Painel_Campanhas {
 
         error_log('🟢 [NOVO Vincular] Bases processadas: ' . implode(', ', $bases));
 
-        $table = $wpdb->prefix . 'pc_carteiras_bases';
+        $table = $wpdb->prefix . 'pc_carteiras_bases_v2';
 
         // PASSO 1: Remove TODOS os vínculos antigos desta carteira
         $wpdb->delete($table, ['carteira_id' => $carteira_id], ['%d']);
@@ -4839,7 +4835,7 @@ class Painel_Campanhas {
             return;
         }
 
-        $table = $wpdb->prefix . 'pc_carteiras_bases';
+        $table = $wpdb->prefix . 'pc_carteiras_bases_v2';
 
         // Busca APENAS os nomes das bases (array simples de strings)
         $bases = $wpdb->get_col($wpdb->prepare(
@@ -4862,7 +4858,7 @@ class Painel_Campanhas {
         check_ajax_referer('pc_nonce', 'nonce');
         global $wpdb;
 
-        $table = $wpdb->prefix . 'pc_carteiras_bases';
+        $table = $wpdb->prefix . 'pc_carteiras_bases_v2';
 
         // Remove todos os vínculos com nomes que parecem JSON
         $deleted = $wpdb->query(
@@ -4951,7 +4947,7 @@ class Painel_Campanhas {
         global $wpdb;
 
         $table_iscas = $wpdb->prefix . 'cm_baits';
-        $table_carteiras = $wpdb->prefix . 'pc_carteiras';
+        $table_carteiras = $wpdb->prefix . 'pc_carteiras_v2';
 
         // Busca todas as iscas ativas sem JOIN primeiro
         $iscas = $wpdb->get_results(
@@ -5251,8 +5247,8 @@ class Painel_Campanhas {
             $id_carteira = $record['id_carteira'] ?? '';
             if (empty($id_carteira) && !empty($record['carteira'])) {
                 global $wpdb;
-                $carteiras_table = $wpdb->prefix . 'pc_carteiras';
-                $carteira_bases_table = $wpdb->prefix . 'pc_carteiras_bases';
+                $carteiras_table = $wpdb->prefix . 'pc_carteiras_v2';
+                $carteira_bases_table = $wpdb->prefix . 'pc_carteiras_bases_v2';
                 
                 // Busca carteira pelo nome
                 $carteira = $wpdb->get_row($wpdb->prepare(
@@ -5410,8 +5406,8 @@ class Painel_Campanhas {
         }
         
         // Busca carteiras vinculadas à tabela
-        $carteiras_table = $wpdb->prefix . 'pc_carteiras';
-        $carteiras_bases_table = $wpdb->prefix . 'pc_carteiras_bases';
+        $carteiras_table = $wpdb->prefix . 'pc_carteiras_v2';
+        $carteiras_bases_table = $wpdb->prefix . 'pc_carteiras_bases_v2';
         
         $carteira = $wpdb->get_row($wpdb->prepare(
             "SELECT c.id_carteira 
@@ -5441,8 +5437,8 @@ class Painel_Campanhas {
         }
         
         // Busca em todas as bases vinculadas
-        $carteiras_table = $wpdb->prefix . 'pc_carteiras';
-        $carteiras_bases_table = $wpdb->prefix . 'pc_carteiras_bases';
+        $carteiras_table = $wpdb->prefix . 'pc_carteiras_v2';
+        $carteiras_bases_table = $wpdb->prefix . 'pc_carteiras_bases_v2';
         
         // Pega a primeira carteira ativa encontrada
         $carteira = $wpdb->get_row(
