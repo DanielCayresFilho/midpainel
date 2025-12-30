@@ -170,6 +170,7 @@ class Painel_Campanhas {
         add_action('wp_ajax_pc_vincular_base_carteira', [$this, 'handle_vincular_base_carteira']);
         add_action('wp_ajax_pc_remover_base_carteira', [$this, 'handle_remover_base_carteira']);
         add_action('wp_ajax_pc_get_bases_carteira', [$this, 'handle_get_bases_carteira']);
+        add_action('wp_ajax_pc_limpar_vinculos_ruins', [$this, 'handle_limpar_vinculos_ruins']);
 
         // AJAX para Iscas
         add_action('wp_ajax_pc_create_isca', [$this, 'handle_create_isca']);
@@ -4772,258 +4773,122 @@ class Painel_Campanhas {
         wp_send_json_success('Carteira excluída com sucesso');
     }
     
+    // ========== NOVO: LÓGICA ULTRA-SIMPLES PARA VÍNCULOS ==========
+
     public function handle_vincular_base_carteira() {
-        // Verifica nonce sem parar a execução para debug
-        $nonce_check = check_ajax_referer('pc_nonce', 'nonce', false);
-        if (!$nonce_check) {
-            error_log('🔴 [Vincular Base] Erro de nonce');
-            wp_send_json_error('Erro de autenticação. Por favor, recarregue a página.');
-            return;
-        }
-        
+        check_ajax_referer('pc_nonce', 'nonce');
         global $wpdb;
 
-        // Log de debug completo
-        error_log('🔵 [Vincular Base] POST completo: ' . json_encode($_POST));
-        
         $carteira_id = intval($_POST['carteira_id'] ?? 0);
-        error_log('🔵 [Vincular Base] Carteira ID recebido: ' . $carteira_id);
+        $bases_raw = $_POST['bases'] ?? '';
+
+        error_log('🟢 [NOVO Vincular] Carteira: ' . $carteira_id);
+        error_log('🟢 [NOVO Vincular] Bases raw: ' . $bases_raw);
+        error_log('🟢 [NOVO Vincular] Tipo: ' . gettype($bases_raw));
 
         if (!$carteira_id) {
-            error_log('🔴 [Vincular Base] ID da carteira inválido ou vazio');
             wp_send_json_error('ID da carteira inválido');
             return;
         }
 
-        // Bases pode vir como JSON string (do React) ou como array (do PHP)
-        $bases_raw = $_POST['bases'] ?? null;
-        error_log('🔵 [Vincular Base] Bases raw recebido: ' . print_r($bases_raw, true));
-        error_log('🔵 [Vincular Base] Tipo do bases_raw: ' . gettype($bases_raw));
-        
+        // Decodifica JSON UMA VEZ - wpAjax sempre envia objetos/arrays como JSON string
         $bases = [];
-        
-        if ($bases_raw !== null) {
-            if (is_string($bases_raw)) {
-                // Tenta decodificar JSON
-                $decoded = json_decode($bases_raw, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $bases = $decoded;
-                } else {
-                    // Se não for JSON válido, pode ser uma string única
-                    error_log('⚠️ [Vincular Base] JSON inválido ou não é array. Tentando como string única.');
-                    if (!empty(trim($bases_raw))) {
-                        $bases = [trim($bases_raw)];
-                    }
-                }
-            } elseif (is_array($bases_raw)) {
-                $bases = $bases_raw;
+        if (is_string($bases_raw) && !empty($bases_raw)) {
+            $decoded = json_decode($bases_raw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $bases = $decoded;
             }
+        } elseif (is_array($bases_raw)) {
+            $bases = $bases_raw;
         }
 
-        // Garante que é array e remove valores vazios
-        if (!is_array($bases)) {
-            $bases = [];
-        }
-        $bases = array_filter($bases, function($base) {
-            return !empty(trim($base));
+        // Limpa array: remove vazios e normaliza strings
+        $bases = array_filter(array_map(function($base) {
+            return is_string($base) ? trim($base) : '';
+        }, $bases), function($base) {
+            return !empty($base);
         });
-        $bases = array_values($bases); // Reindexa o array
 
-        error_log('🔵 [Vincular Base] Bases processadas: ' . json_encode($bases));
-        error_log('🔵 [Vincular Base] Total de bases: ' . count($bases));
+        error_log('🟢 [NOVO Vincular] Bases processadas: ' . implode(', ', $bases));
 
         $table = $wpdb->prefix . 'pc_carteiras_bases';
 
-        // Verifica se a tabela existe
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") === $table;
-        if (!$table_exists) {
-            error_log('🔴 [Vincular Base] Tabela não existe: ' . $table);
-            wp_send_json_error('Tabela de vínculos não encontrada. Por favor, reative o plugin.');
-            return;
-        }
+        // PASSO 1: Remove TODOS os vínculos antigos desta carteira
+        $wpdb->delete($table, ['carteira_id' => $carteira_id], ['%d']);
 
-        // Remove todos os vínculos existentes desta carteira
-        $deleted = $wpdb->delete($table, ['carteira_id' => $carteira_id], ['%d']);
-        error_log('🔵 [Vincular Base] Vínculos antigos deletados: ' . $deleted);
-        error_log('🔵 [Vincular Base] SQL executado: DELETE FROM ' . $table . ' WHERE carteira_id = ' . $carteira_id);
+        // PASSO 2: Insere os novos vínculos
+        $inserted = 0;
+        foreach ($bases as $base_nome) {
+            $result = $wpdb->insert(
+                $table,
+                [
+                    'carteira_id' => $carteira_id,
+                    'nome_base' => sanitize_text_field($base_nome)
+                ],
+                ['%d', '%s']
+            );
 
-        // Verifica se realmente foram removidos
-        $remaining = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $table WHERE carteira_id = %d",
-            $carteira_id
-        ));
-        error_log('🔵 [Vincular Base] Vínculos restantes após DELETE: ' . $remaining);
-
-        // Adiciona novos vínculos
-        $inserted_count = 0;
-        $errors = [];
-
-        if (!empty($bases)) {
-            foreach ($bases as $base) {
-                if (empty(trim($base))) {
-                    continue;
-                }
-
-                $base_clean = sanitize_text_field(trim($base));
-
-                // 🔧 FIX: Se a base parece ser JSON (começa com [ ou "), tenta decodificar
-                if (strlen($base_clean) > 0 && ($base_clean[0] === '[' || $base_clean[0] === '"')) {
-                    $decoded = json_decode($base_clean, true);
-                    if (json_last_error() === JSON_ERROR_NONE) {
-                        if (is_array($decoded) && count($decoded) === 1 && is_string($decoded[0])) {
-                            // Era um array com um único elemento string
-                            $base_clean = sanitize_text_field(trim($decoded[0]));
-                            error_log('🔧 [Vincular Base] Corrigido JSON-encoded base: ' . $base . ' -> ' . $base_clean);
-                        } elseif (is_string($decoded)) {
-                            // Era uma string JSON-encoded
-                            $base_clean = sanitize_text_field(trim($decoded));
-                            error_log('🔧 [Vincular Base] Corrigido JSON-encoded base: ' . $base . ' -> ' . $base_clean);
-                        }
-                    }
-                }
-
-                // Verifica se já existe (evita duplicatas)
-                $exists = $wpdb->get_var($wpdb->prepare(
-                    "SELECT COUNT(*) FROM $table WHERE carteira_id = %d AND nome_base = %s",
-                    $carteira_id,
-                    $base_clean
-                ));
-
-                if ($exists > 0) {
-                    error_log('⚠️ [Vincular Base] Base já existe, pulando: ' . $base_clean);
-                    $inserted_count++;
-                    continue;
-                }
-                
-                $result = $wpdb->insert(
-                    $table,
-                    [
-                        'carteira_id' => $carteira_id,
-                        'nome_base' => $base_clean
-                    ],
-                    ['%d', '%s']
-                );
-                
-                if ($result !== false) {
-                    $inserted_count++;
-                    error_log('✅ [Vincular Base] Base inserida com sucesso: ' . $base_clean);
-                } else {
-                    $error_msg = $wpdb->last_error ?: 'Erro desconhecido';
-                    $errors[] = $base_clean . ': ' . $error_msg;
-                    error_log('🔴 [Vincular Base] Erro ao inserir base "' . $base_clean . '": ' . $error_msg);
-                }
+            if ($result !== false) {
+                $inserted++;
+                error_log('✅ [NOVO Vincular] Inserido: ' . $base_nome);
             }
         }
 
-        if (!empty($errors)) {
-            error_log('🔴 [Vincular Base] Erros ao inserir: ' . json_encode($errors));
-            wp_send_json_error('Algumas bases não puderam ser vinculadas: ' . implode(', ', $errors));
-            return;
-        }
+        error_log('🟢 [NOVO Vincular] Total inserido: ' . $inserted);
 
-        error_log('✅ [Vincular Base] Sucesso! ' . $inserted_count . ' base(s) vinculada(s) à carteira ' . $carteira_id);
         wp_send_json_success([
             'message' => 'Bases vinculadas com sucesso',
-            'count' => $inserted_count
+            'count' => $inserted
         ]);
     }
     
     public function handle_get_bases_carteira() {
-        // Verifica nonce sem parar a execução para debug
-        $nonce_check = check_ajax_referer('pc_nonce', 'nonce', false);
-        if (!$nonce_check) {
-            error_log('🔴 [Get Bases Carteira] Erro de nonce');
-            wp_send_json_error('Erro de autenticação. Por favor, recarregue a página.');
-            return;
-        }
-        
+        check_ajax_referer('pc_nonce', 'nonce');
         global $wpdb;
 
         $carteira_id = intval($_POST['carteira_id'] ?? 0);
-        error_log('🔵 [Get Bases Carteira] Carteira ID recebido: ' . $carteira_id);
 
         if (!$carteira_id) {
-            error_log('🔴 [Get Bases Carteira] ID da carteira inválido');
             wp_send_json_error('ID da carteira inválido');
             return;
         }
 
         $table = $wpdb->prefix . 'pc_carteiras_bases';
-        
-        // Verifica se a tabela existe
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") === $table;
-        if (!$table_exists) {
-            error_log('🔴 [Get Bases Carteira] Tabela não existe: ' . $table);
-            wp_send_json_error('Tabela de vínculos não encontrada. Por favor, reative o plugin.');
-            return;
-        }
 
-        // Debug: Ver todas as carteiras disponíveis
-        $table_carteiras = $wpdb->prefix . 'pc_carteiras';
-        $carteira_info = $wpdb->get_row($wpdb->prepare(
-            "SELECT id, id_carteira, nome FROM $table_carteiras WHERE id = %d",
+        // Busca APENAS os nomes das bases (array simples de strings)
+        $bases = $wpdb->get_col($wpdb->prepare(
+            "SELECT nome_base FROM $table WHERE carteira_id = %d ORDER BY nome_base",
             $carteira_id
-        ), ARRAY_A);
-        error_log('🔵 [Get Bases Carteira] Info da carteira: ' . json_encode($carteira_info));
+        ));
 
-        $bases = $wpdb->get_results(
-            $wpdb->prepare("SELECT id, nome_base FROM $table WHERE carteira_id = %d ORDER BY nome_base", $carteira_id),
-            ARRAY_A
-        );
-
-        // Garante que sempre retorna um array, mesmo vazio
         $result = is_array($bases) ? $bases : [];
 
-        // 🔧 FIX: Limpa bases com JSON encoding indevido
-        $needs_cleanup = false;
-        foreach ($result as $idx => $base_row) {
-            $nome_base = $base_row['nome_base'];
+        error_log('🟢 [NOVO Get Bases] Carteira: ' . $carteira_id);
+        error_log('🟢 [NOVO Get Bases] Total: ' . count($result));
+        error_log('🟢 [NOVO Get Bases] Bases: ' . implode(', ', $result));
 
-            // Detecta se a base está JSON-encoded indevidamente
-            if (strlen($nome_base) > 0 && ($nome_base[0] === '[' || $nome_base[0] === '"')) {
-                $decoded = json_decode($nome_base, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $nome_correto = null;
-
-                    if (is_array($decoded) && count($decoded) === 1 && is_string($decoded[0])) {
-                        $nome_correto = trim($decoded[0]);
-                    } elseif (is_string($decoded)) {
-                        $nome_correto = trim($decoded);
-                    }
-
-                    if ($nome_correto) {
-                        error_log('🔧 [Get Bases Carteira] Detectado JSON encoding indevido na base ID ' . $base_row['id'] . ': ' . $nome_base . ' -> ' . $nome_correto);
-
-                        // Atualiza no banco de dados
-                        $wpdb->update(
-                            $table,
-                            ['nome_base' => $nome_correto],
-                            ['id' => $base_row['id']],
-                            ['%s'],
-                            ['%d']
-                        );
-
-                        // Atualiza no resultado
-                        $result[$idx]['nome_base'] = $nome_correto;
-                        $needs_cleanup = true;
-                    }
-                }
-            }
-        }
-
-        if ($needs_cleanup) {
-            error_log('✅ [Get Bases Carteira] Limpeza automática realizada');
-        }
-
-        error_log('🔵 [Get Bases Carteira] Query: SELECT id, nome_base FROM ' . $table . ' WHERE carteira_id = ' . $carteira_id);
-        error_log('🔵 [Get Bases Carteira] Total de bases encontradas: ' . count($result));
-        error_log('🔵 [Get Bases Carteira] Bases retornadas: ' . json_encode($result));
-
-        if (empty($result)) {
-            error_log('⚠️ [Get Bases Carteira] Nenhuma base vinculada encontrada para carteira ' . $carteira_id);
-        }
-
+        // Retorna array simples de strings
         wp_send_json_success($result);
+    }
+
+    // Handler para limpar dados ruins (usar via console se necessário)
+    public function handle_limpar_vinculos_ruins() {
+        check_ajax_referer('pc_nonce', 'nonce');
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'pc_carteiras_bases';
+
+        // Remove todos os vínculos com nomes que parecem JSON
+        $deleted = $wpdb->query(
+            "DELETE FROM $table WHERE nome_base LIKE '[%' OR nome_base LIKE '\"%'"
+        );
+
+        error_log('🧹 [Limpar Vínculos] Removidos: ' . $deleted);
+
+        wp_send_json_success([
+            'message' => 'Vínculos ruins removidos',
+            'count' => $deleted
+        ]);
     }
 
     // ========== HANDLERS PARA ISCAS ==========

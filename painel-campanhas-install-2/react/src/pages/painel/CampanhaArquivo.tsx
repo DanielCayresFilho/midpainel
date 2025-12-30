@@ -86,15 +86,15 @@ export default function CampanhaArquivo() {
   });
 
   // Bases filtradas por carteira
+  // Backend agora retorna array simples de strings: ['base1', 'base2', ...]
   const bases = carteira
     ? (basesCarteira.length > 0
         ? allBases.filter((base: any) => {
-            // Normaliza nomes para comparação (remove espaços e ignora case)
             const baseName = (base.name || '').trim().toLowerCase();
-            return basesCarteira.some((bc: any) => {
-              const bcName = (bc.nome_base || '').trim().toLowerCase();
-              return bcName === baseName;
-            });
+            // basesCarteira agora é array de strings
+            return basesCarteira.some((bc: string) =>
+              bc.trim().toLowerCase() === baseName
+            );
           })
         : [])
     : [];

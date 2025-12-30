@@ -93,16 +93,17 @@ export default function Configuracoes() {
   useEffect(() => {
     if (!isBasesDialogOpen) return;
 
+    // Backend agora retorna array simples de strings: ['base1', 'base2', ...]
     if (basesCarteira && Array.isArray(basesCarteira) && basesCarteira.length > 0) {
-      const vinculadas = basesCarteira.map((b: any) => {
-        // Garante que sempre retorna string
-        const nome = b?.nome_base || b?.base || b?.name || b?.id;
-        return nome ? String(nome) : null;
-      }).filter((v): v is string => Boolean(v));
+      // Filtra apenas strings válidas
+      const vinculadas = basesCarteira
+        .filter((b): b is string => typeof b === 'string' && b.trim().length > 0)
+        .map(b => b.trim());
+
+      console.log('🟢 [Config] Bases vinculadas carregadas:', vinculadas);
       setSelectedBases(vinculadas);
     } else {
-      // Só seta para vazio se não estiver já vazio
-      setSelectedBases(prev => prev.length > 0 ? [] : prev);
+      setSelectedBases([]);
     }
   }, [basesCarteira, isBasesDialogOpen]);
 
