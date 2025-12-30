@@ -119,14 +119,34 @@ export default function NovaCampanha() {
     console.log('🔵 [NovaCampanha] Bases da carteira (raw):', basesCarteira);
     console.log('🔵 [NovaCampanha] Nomes das bases vinculadas (normalizados):', nomesBasesVinculadas);
     console.log('🔵 [NovaCampanha] Total de bases disponíveis:', allBases.length);
-    
-    // Log das primeiras 5 bases disponíveis para debug
-    console.log('🔵 [NovaCampanha] Primeiras 5 bases disponíveis:', allBases.slice(0, 5).map((b: any) => ({
-      id: b?.id,
-      name: b?.name,
-      nameNormalized: String(b?.name || b?.id || '').trim().toLowerCase(),
-      full: b
-    })));
+
+    // Log DETALHADO: mostra a base vinculada byte por byte
+    if (nomesBasesVinculadas.length > 0) {
+      const primeiraVinculada = nomesBasesVinculadas[0];
+      console.log('🔍 [NovaCampanha] Base vinculada (primeira):', {
+        valor: primeiraVinculada,
+        length: primeiraVinculada.length,
+        bytes: Array.from(primeiraVinculada).map(c => c.charCodeAt(0)),
+        hex: Array.from(primeiraVinculada).map(c => c.charCodeAt(0).toString(16)).join(' ')
+      });
+    }
+
+    // Log das bases disponíveis que contêm "vw_base" ou "sms"
+    const basesRelevantes = allBases.filter((b: any) => {
+      const name = String(b?.name || '').toLowerCase();
+      return name.includes('vw_') || name.includes('sms') || name.includes('veiculos');
+    }).slice(0, 10);
+
+    console.log('🔍 [NovaCampanha] Bases disponíveis relevantes (max 10):', basesRelevantes.map((b: any) => {
+      const name = String(b?.name || '');
+      const normalized = name.trim().toLowerCase();
+      return {
+        name: name,
+        normalized: normalized,
+        length: normalized.length,
+        matchVinculada: nomesBasesVinculadas.includes(normalized)
+      };
+    }));
 
     // Filtra as bases disponíveis que estão vinculadas
     // Usa comparação case-insensitive e normalizada - APENAS MATCH EXATO
