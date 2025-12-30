@@ -129,40 +129,16 @@ export default function NovaCampanha() {
     })));
 
     // Filtra as bases disponíveis que estão vinculadas
-    // Usa comparação case-insensitive e normalizada
+    // Usa comparação case-insensitive e normalizada - APENAS MATCH EXATO
     const basesFiltradas = allBases.filter((base: any) => {
       const baseName = String(base?.name || base?.id || '').trim();
       const baseNameNormalized = baseName.toLowerCase();
-      
-      // Tenta match exato primeiro (case-insensitive)
-      let match = nomesBasesVinculadas.includes(baseNameNormalized);
-      
-      // Se não encontrou, tenta match parcial (para casos de espaços extras, etc)
-      if (!match && nomesBasesVinculadas.length > 0) {
-        match = nomesBasesVinculadas.some((nomeVinculado: string) => {
-          return baseNameNormalized === nomeVinculado || 
-                 baseNameNormalized.includes(nomeVinculado) || 
-                 nomeVinculado.includes(baseNameNormalized);
-        });
-      }
-      
-      // Log detalhado para debug
-      if (nomesBasesVinculadas.length > 0 && !match) {
-        const primeiroNomeVinculado = nomesBasesVinculadas[0];
-        // Log apenas se for similar (para não poluir o console)
-        if (baseNameNormalized.includes(primeiroNomeVinculado.substring(0, 5)) || 
-            primeiroNomeVinculado.includes(baseNameNormalized.substring(0, 5))) {
-          console.log('🔍 [NovaCampanha] Comparação (sem match):', {
-            baseName,
-            baseNameNormalized,
-            primeiroNomeVinculado,
-            matchExato: baseNameNormalized === primeiroNomeVinculado,
-          });
-        }
-      }
-      
+
+      // Match EXATO APENAS (case-insensitive)
+      const match = nomesBasesVinculadas.includes(baseNameNormalized);
+
       if (match) {
-        console.log('✅ [NovaCampanha] Base encontrada:', baseName, '→', baseNameNormalized);
+        console.log('✅ [NovaCampanha] Base encontrada:', baseName);
       }
       return match;
     });

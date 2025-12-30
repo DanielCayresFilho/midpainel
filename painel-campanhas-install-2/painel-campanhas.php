@@ -406,11 +406,26 @@ class Painel_Campanhas {
         dbDelta($sql_carteiras_bases);
 
         // Limpeza: Remove vínculos órfãos (carteira_id que não existe mais)
-        $wpdb->query("
+        $deleted_orphans = $wpdb->query("
             DELETE cb FROM {$table_carteiras_bases} cb
             LEFT JOIN {$table_carteiras} c ON cb.carteira_id = c.id
             WHERE c.id IS NULL
         ");
+        if ($deleted_orphans > 0) {
+            error_log('🧹 [Plugin Ativado] Removidos ' . $deleted_orphans . ' vínculos órfãos');
+        }
+
+        // Debug: Mostra todos os vínculos atuais
+        $all_vinculos = $wpdb->get_results("
+            SELECT cb.id, cb.carteira_id, cb.nome_base, c.nome as carteira_nome, c.id_carteira
+            FROM {$table_carteiras_bases} cb
+            LEFT JOIN {$table_carteiras} c ON cb.carteira_id = c.id
+            ORDER BY cb.carteira_id, cb.nome_base
+        ", ARRAY_A);
+        error_log('🔍 [Plugin Ativado] Total de vínculos no banco: ' . count($all_vinculos));
+        if (count($all_vinculos) > 0) {
+            error_log('🔍 [Plugin Ativado] Vínculos existentes: ' . json_encode($all_vinculos, JSON_PRETTY_PRINT));
+        }
 
         // Tabela de iscas (baits)
         $table_baits = $wpdb->prefix . 'cm_baits';
