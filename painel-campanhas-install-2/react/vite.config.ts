@@ -30,5 +30,6 @@ export default defineConfig(({ mode }) => ({
     copyPublicDir: true,
   },
   publicDir: "public",
-  base: mode === "production" ? "/wp-content/plugins/painel-campanhas-install-2/react/dist/" : "/",
+  // Usa caminhos relativos para compatibilidade com WordPress em qualquer configuração
+  base: "./",
 }));
