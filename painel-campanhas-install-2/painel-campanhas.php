@@ -171,6 +171,7 @@ class Painel_Campanhas {
         add_action('wp_ajax_pc_remover_base_carteira', [$this, 'handle_remover_base_carteira']);
         add_action('wp_ajax_pc_get_bases_carteira', [$this, 'handle_get_bases_carteira']);
         add_action('wp_ajax_pc_limpar_vinculos_ruins', [$this, 'handle_limpar_vinculos_ruins']);
+        add_action('wp_ajax_pc_resetar_tabelas_carteiras', [$this, 'handle_resetar_tabelas_carteiras']);
 
         // AJAX para Iscas
         add_action('wp_ajax_pc_create_isca', [$this, 'handle_create_isca']);
