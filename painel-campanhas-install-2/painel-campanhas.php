@@ -4857,22 +4857,38 @@ class Painel_Campanhas {
         // Adiciona novos vínculos
         $inserted_count = 0;
         $errors = [];
-        
+
         if (!empty($bases)) {
             foreach ($bases as $base) {
                 if (empty(trim($base))) {
                     continue;
                 }
-                
+
                 $base_clean = sanitize_text_field(trim($base));
-                
+
+                // 🔧 FIX: Se a base parece ser JSON (começa com [ ou "), tenta decodificar
+                if (strlen($base_clean) > 0 && ($base_clean[0] === '[' || $base_clean[0] === '"')) {
+                    $decoded = json_decode($base_clean, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        if (is_array($decoded) && count($decoded) === 1 && is_string($decoded[0])) {
+                            // Era um array com um único elemento string
+                            $base_clean = sanitize_text_field(trim($decoded[0]));
+                            error_log('🔧 [Vincular Base] Corrigido JSON-encoded base: ' . $base . ' -> ' . $base_clean);
+                        } elseif (is_string($decoded)) {
+                            // Era uma string JSON-encoded
+                            $base_clean = sanitize_text_field(trim($decoded));
+                            error_log('🔧 [Vincular Base] Corrigido JSON-encoded base: ' . $base . ' -> ' . $base_clean);
+                        }
+                    }
+                }
+
                 // Verifica se já existe (evita duplicatas)
                 $exists = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM $table WHERE carteira_id = %d AND nome_base = %s",
                     $carteira_id,
                     $base_clean
                 ));
-                
+
                 if ($exists > 0) {
                     error_log('⚠️ [Vincular Base] Base já existe, pulando: ' . $base_clean);
                     $inserted_count++;
@@ -4951,17 +4967,58 @@ class Painel_Campanhas {
         error_log('🔵 [Get Bases Carteira] Info da carteira: ' . json_encode($carteira_info));
 
         $bases = $wpdb->get_results(
-            $wpdb->prepare("SELECT DISTINCT nome_base FROM $table WHERE carteira_id = %d ORDER BY nome_base", $carteira_id),
+            $wpdb->prepare("SELECT id, nome_base FROM $table WHERE carteira_id = %d ORDER BY nome_base", $carteira_id),
             ARRAY_A
         );
 
         // Garante que sempre retorna um array, mesmo vazio
         $result = is_array($bases) ? $bases : [];
 
-        error_log('🔵 [Get Bases Carteira] Query: SELECT DISTINCT nome_base FROM ' . $table . ' WHERE carteira_id = ' . $carteira_id);
+        // 🔧 FIX: Limpa bases com JSON encoding indevido
+        $needs_cleanup = false;
+        foreach ($result as $idx => $base_row) {
+            $nome_base = $base_row['nome_base'];
+
+            // Detecta se a base está JSON-encoded indevidamente
+            if (strlen($nome_base) > 0 && ($nome_base[0] === '[' || $nome_base[0] === '"')) {
+                $decoded = json_decode($nome_base, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $nome_correto = null;
+
+                    if (is_array($decoded) && count($decoded) === 1 && is_string($decoded[0])) {
+                        $nome_correto = trim($decoded[0]);
+                    } elseif (is_string($decoded)) {
+                        $nome_correto = trim($decoded);
+                    }
+
+                    if ($nome_correto) {
+                        error_log('🔧 [Get Bases Carteira] Detectado JSON encoding indevido na base ID ' . $base_row['id'] . ': ' . $nome_base . ' -> ' . $nome_correto);
+
+                        // Atualiza no banco de dados
+                        $wpdb->update(
+                            $table,
+                            ['nome_base' => $nome_correto],
+                            ['id' => $base_row['id']],
+                            ['%s'],
+                            ['%d']
+                        );
+
+                        // Atualiza no resultado
+                        $result[$idx]['nome_base'] = $nome_correto;
+                        $needs_cleanup = true;
+                    }
+                }
+            }
+        }
+
+        if ($needs_cleanup) {
+            error_log('✅ [Get Bases Carteira] Limpeza automática realizada');
+        }
+
+        error_log('🔵 [Get Bases Carteira] Query: SELECT id, nome_base FROM ' . $table . ' WHERE carteira_id = ' . $carteira_id);
         error_log('🔵 [Get Bases Carteira] Total de bases encontradas: ' . count($result));
         error_log('🔵 [Get Bases Carteira] Bases retornadas: ' . json_encode($result));
-        
+
         if (empty($result)) {
             error_log('⚠️ [Get Bases Carteira] Nenhuma base vinculada encontrada para carteira ' . $carteira_id);
         }
