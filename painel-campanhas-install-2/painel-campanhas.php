@@ -5007,14 +5007,24 @@ class Painel_Campanhas {
         $table_iscas = $wpdb->prefix . 'cm_baits';
         $table_carteiras = $wpdb->prefix . 'pc_carteiras';
 
+        // Busca todas as iscas ativas sem JOIN primeiro
         $iscas = $wpdb->get_results(
-            "SELECT i.*, c.nome as nome_carteira
-            FROM $table_iscas i
-            LEFT JOIN $table_carteiras c ON i.id_carteira = c.id
-            WHERE i.ativo = 1
-            ORDER BY i.criado_em DESC",
+            "SELECT * FROM $table_iscas WHERE ativo = 1 ORDER BY criado_em DESC",
             ARRAY_A
         );
+
+        // Enriquece com nome da carteira se tiver
+        foreach ($iscas as &$isca) {
+            if (!empty($isca['id_carteira'])) {
+                $carteira = $wpdb->get_row($wpdb->prepare(
+                    "SELECT nome FROM $table_carteiras WHERE id = %d AND ativo = 1",
+                    $isca['id_carteira']
+                ), ARRAY_A);
+                $isca['nome_carteira'] = $carteira ? $carteira['nome'] : null;
+            } else {
+                $isca['nome_carteira'] = null;
+            }
+        }
 
         wp_send_json_success($iscas ?: []);
     }
