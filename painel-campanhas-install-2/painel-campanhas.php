@@ -405,6 +405,13 @@ class Painel_Campanhas {
         ) $charset_collate;";
         dbDelta($sql_carteiras_bases);
 
+        // Limpeza: Remove vínculos órfãos (carteira_id que não existe mais)
+        $wpdb->query("
+            DELETE cb FROM {$table_carteiras_bases} cb
+            LEFT JOIN {$table_carteiras} c ON cb.carteira_id = c.id
+            WHERE c.id IS NULL
+        ");
+
         // Tabela de iscas (baits)
         $table_baits = $wpdb->prefix . 'cm_baits';
         $sql_baits = "CREATE TABLE IF NOT EXISTS $table_baits (
@@ -4820,9 +4827,17 @@ class Painel_Campanhas {
             return;
         }
 
-        // Remove todos os vínculos existentes
+        // Remove todos os vínculos existentes desta carteira
         $deleted = $wpdb->delete($table, ['carteira_id' => $carteira_id], ['%d']);
         error_log('🔵 [Vincular Base] Vínculos antigos deletados: ' . $deleted);
+        error_log('🔵 [Vincular Base] SQL executado: DELETE FROM ' . $table . ' WHERE carteira_id = ' . $carteira_id);
+
+        // Verifica se realmente foram removidos
+        $remaining = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table WHERE carteira_id = %d",
+            $carteira_id
+        ));
+        error_log('🔵 [Vincular Base] Vínculos restantes após DELETE: ' . $remaining);
 
         // Adiciona novos vínculos
         $inserted_count = 0;
@@ -4912,6 +4927,14 @@ class Painel_Campanhas {
             return;
         }
 
+        // Debug: Ver todas as carteiras disponíveis
+        $table_carteiras = $wpdb->prefix . 'pc_carteiras';
+        $carteira_info = $wpdb->get_row($wpdb->prepare(
+            "SELECT id, id_carteira, nome FROM $table_carteiras WHERE id = %d",
+            $carteira_id
+        ), ARRAY_A);
+        error_log('🔵 [Get Bases Carteira] Info da carteira: ' . json_encode($carteira_info));
+
         $bases = $wpdb->get_results(
             $wpdb->prepare("SELECT DISTINCT nome_base FROM $table WHERE carteira_id = %d ORDER BY nome_base", $carteira_id),
             ARRAY_A
@@ -4919,8 +4942,8 @@ class Painel_Campanhas {
 
         // Garante que sempre retorna um array, mesmo vazio
         $result = is_array($bases) ? $bases : [];
-        
-        error_log('🔵 [Get Bases Carteira] Query executada para carteira ' . $carteira_id);
+
+        error_log('🔵 [Get Bases Carteira] Query: SELECT DISTINCT nome_base FROM ' . $table . ' WHERE carteira_id = ' . $carteira_id);
         error_log('🔵 [Get Bases Carteira] Total de bases encontradas: ' . count($result));
         error_log('🔵 [Get Bases Carteira] Bases retornadas: ' . json_encode($result));
         
