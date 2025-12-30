@@ -377,56 +377,41 @@ class Painel_Campanhas {
         ) $charset_collate;";
         dbDelta($sql_orcamentos);
         
-        // Tabela de carteiras
+        // 🔥 DROPA E RECRIA TABELAS DO ZERO - RESET COMPLETO
         $table_carteiras = $wpdb->prefix . 'pc_carteiras';
-        $sql_carteiras = "CREATE TABLE IF NOT EXISTS $table_carteiras (
+        $table_carteiras_bases = $wpdb->prefix . 'pc_carteiras_bases';
+
+        // Remove tabelas antigas
+        $wpdb->query("DROP TABLE IF EXISTS $table_carteiras_bases");
+        $wpdb->query("DROP TABLE IF EXISTS $table_carteiras");
+
+        error_log('🔥 [Plugin] RESET COMPLETO - Tabelas antigas dropadas!');
+
+        // Cria tabela de carteiras DO ZERO
+        $sql_carteiras = "CREATE TABLE $table_carteiras (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             nome varchar(255) NOT NULL,
             id_carteira varchar(100) NOT NULL,
             descricao text,
             ativo tinyint(1) DEFAULT 1,
             criado_em datetime DEFAULT CURRENT_TIMESTAMP,
-            atualizado_em datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY unique_id_carteira (id_carteira)
         ) $charset_collate;";
-        dbDelta($sql_carteiras);
-        
-        // Tabela de vínculo entre carteiras e bases (VW_BASE*)
-        $table_carteiras_bases = $wpdb->prefix . 'pc_carteiras_bases';
-        $sql_carteiras_bases = "CREATE TABLE IF NOT EXISTS $table_carteiras_bases (
+        $wpdb->query($sql_carteiras);
+
+        // Cria tabela de vínculos DO ZERO
+        $sql_carteiras_bases = "CREATE TABLE $table_carteiras_bases (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             carteira_id bigint(20) NOT NULL,
             nome_base varchar(150) NOT NULL,
             criado_em datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            UNIQUE KEY unique_carteira_base (carteira_id, nome_base),
-            KEY idx_carteira (carteira_id),
-            KEY idx_base (nome_base)
+            UNIQUE KEY unique_carteira_base (carteira_id, nome_base)
         ) $charset_collate;";
-        dbDelta($sql_carteiras_bases);
+        $wpdb->query($sql_carteiras_bases);
 
-        // Limpeza: Remove vínculos órfãos (carteira_id que não existe mais)
-        $deleted_orphans = $wpdb->query("
-            DELETE cb FROM {$table_carteiras_bases} cb
-            LEFT JOIN {$table_carteiras} c ON cb.carteira_id = c.id
-            WHERE c.id IS NULL
-        ");
-        if ($deleted_orphans > 0) {
-            error_log('🧹 [Plugin Ativado] Removidos ' . $deleted_orphans . ' vínculos órfãos');
-        }
-
-        // Debug: Mostra todos os vínculos atuais
-        $all_vinculos = $wpdb->get_results("
-            SELECT cb.id, cb.carteira_id, cb.nome_base, c.nome as carteira_nome, c.id_carteira
-            FROM {$table_carteiras_bases} cb
-            LEFT JOIN {$table_carteiras} c ON cb.carteira_id = c.id
-            ORDER BY cb.carteira_id, cb.nome_base
-        ", ARRAY_A);
-        error_log('🔍 [Plugin Ativado] Total de vínculos no banco: ' . count($all_vinculos));
-        if (count($all_vinculos) > 0) {
-            error_log('🔍 [Plugin Ativado] Vínculos existentes: ' . json_encode($all_vinculos, JSON_PRETTY_PRINT));
-        }
+        error_log('✅ [Plugin] Tabelas novas criadas! Sistema LIMPO!');
 
         // Tabela de iscas (baits)
         $table_baits = $wpdb->prefix . 'cm_baits';
