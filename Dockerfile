@@ -16,13 +16,10 @@ RUN NODE_ENV=development pnpm install --frozen-lockfile
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 
-# Generate Prisma Client (only once, in builder)
-RUN npx prisma generate
-
 # Copy source code (this changes most frequently)
 COPY . .
 
-# Build the application
+# Build the application (Prisma client will be generated at runtime)
 RUN pnpm build
 
 # Production stage
@@ -45,9 +42,6 @@ RUN pnpm add -D prisma@7.0.1 @prisma/config@7.0.1
 # Copy Prisma schema and config
 COPY prisma ./prisma
 COPY prisma.config.ts ./
-
-# Generate Prisma Client in production
-RUN npx prisma generate
 
 # Install pg_isready for health check
 RUN apk add --no-cache postgresql-client
