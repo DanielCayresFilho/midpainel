@@ -30,7 +30,6 @@ import {
   getCarteiras,
   getBasesCarteira,
   checkBaseUpdate,
-  getOtimaTemplates,
 } from "@/lib/api";
 
 const providers = [
@@ -133,61 +132,17 @@ export default function NovaCampanha() {
   }, [formData.carteira, basesCarteira, allBases]);
 
   // Buscar templates de mensagem
-  const { data: messages = [], isLoading: messagesLoading } = useQuery({
+  const { data: templatesData = [], isLoading: templatesLoading } = useQuery({
     queryKey: ['messages'],
     queryFn: getMessages,
   });
 
-  // Buscar templates Otima
-  const { data: otimaTemplates = [], isLoading: otimaLoading } = useQuery({
-    queryKey: ['otima-templates'],
-    queryFn: getOtimaTemplates,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const templatesLoading = messagesLoading || otimaLoading;
-
-  // Processar e filtrar templates
-  const templates = useMemo(() => {
-    // Templates Locais
-    const local = messages.map((t: any) => ({
-      id: String(t.id),
-      name: t.title || '',
-      source: t.source || 'local',
-      templateCode: t.template_code || t.template_id || '',
-      walletId: null
-    }));
-
-    // Templates Otima
-    const external = Array.isArray(otimaTemplates) ? otimaTemplates.map((t: any) => ({
-      id: t.id,
-      name: t.name || t.template_code || '',
-      source: t.source,
-      templateCode: t.template_code || '',
-      walletId: t.wallet_id,
-      walletName: t.wallet_name,
-      imageUrl: t.image_url
-    })) : [];
-
-    const allTemplates = [...local, ...external];
-
-    // Se tiver carteira selecionada, filtra os templates externos
-    if (formData.carteira) {
-      console.log('🔍 [NovaCampanha] Filtrando templates para carteira:', formData.carteira);
-      return allTemplates.filter(t => {
-        // Local sempre exibe? Ou deve filtrar também? 
-        // Geralmente local é global, mas Otima é restrito por carteira.
-        if (t.source === 'local') return true;
-
-        // Verifica se o template pertence à carteira selecionada
-        // A comparação deve ser feita como string para garantir
-        return String(t.walletId) === String(formData.carteira);
-      });
-    }
-
-    // Se nenhuma carteira selecionada, mostra apenas locais (ou todos? Melhor mostrar locais)
-    return local;
-  }, [messages, otimaTemplates, formData.carteira]);
+  const templates = templatesData.map((t: any) => ({
+    id: String(t.id),
+    name: t.title || '',
+    source: t.source || 'local',
+    templateCode: t.template_code || t.template_id || '',
+  }));
 
   // Buscar filtros quando base for selecionada
   const { data: availableFilters = [], isLoading: filtersLoading } = useQuery({
@@ -553,10 +508,10 @@ export default function NovaCampanha() {
           <div key={s} className="flex items-center">
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all ${s === step
-                ? "gradient-primary text-primary-foreground shadow-glow"
-                : s < step
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+                  ? "gradient-primary text-primary-foreground shadow-glow"
+                  : s < step
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
                 }`}
             >
               {s}
@@ -657,8 +612,8 @@ export default function NovaCampanha() {
                           setFormData({ ...formData, base: base.id });
                         }}
                         className={`rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 w-full ${formData.base === base.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border"
+                            ? "border-primary bg-primary/5"
+                            : "border-border"
                           }`}
                       >
                         <p
@@ -818,8 +773,8 @@ export default function NovaCampanha() {
                   <label
                     key={`provider-${provider.id || idx}`}
                     className={`flex items-center gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all ${formData.providers.includes(provider.id)
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/30"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/30"
                       } ${!provider.available && "opacity-50 cursor-not-allowed"}`}
                   >
                     <Checkbox
