@@ -24,6 +24,8 @@ interface RCSTemplateMessage {
 
 interface RCSOtimaPayload {
   messages: RCSTemplateMessage[];
+  template_code?: string;
+  template?: string; // Algumas variações usam template ou template_name
 }
 
 @Injectable()
@@ -47,6 +49,28 @@ export class RcsOtimaProvider extends BaseProvider {
 
     const token = credentials.token || credentials.authorization;
 
+    // Tenta extrair template code da mensagem (enviado pelo WordPress como JSON)
+    let template_code = credentials.template_code || '';
+    let original_message_data = null;
+
+    if (data.length > 0 && data[0].mensagem) {
+      try {
+        const parsed = JSON.parse(data[0].mensagem);
+        if (parsed.template_code) {
+          template_code = parsed.template_code;
+          original_message_data = parsed;
+          this.logger.log(`📝 [RCS Ótima] Usando template dinâmico: ${template_code}`);
+
+          // Se tiver source, valida se é rcs
+          if (parsed.template_source && parsed.template_source !== 'otima_rcs') {
+            this.logger.warn(`⚠️ [RCS Ótima] Template source incorreto: ${parsed.template_source}`);
+          }
+        }
+      } catch (e) {
+        // Não é JSON, usa a mensagem como está
+      }
+    }
+
     // Formata mensagens para o formato da API Ótima
     const messages: RCSTemplateMessage[] = data.map((item) => {
       const phone = this.normalizePhoneNumber(item.telefone);
@@ -55,8 +79,8 @@ export class RcsOtimaProvider extends BaseProvider {
       const phoneWithoutPrefix = phone.startsWith('+55')
         ? phone.substring(3)
         : phone.startsWith('55')
-        ? phone.substring(2)
-        : phone;
+          ? phone.substring(2)
+          : phone;
 
       const message: RCSTemplateMessage = {
         phone: phoneWithoutPrefix,
@@ -81,6 +105,7 @@ export class RcsOtimaProvider extends BaseProvider {
 
     const payload: RCSOtimaPayload = {
       messages,
+      template_code: template_code, // Adicionando ao payload
     };
 
     this.logger.log(`📦 [RCS Ótima] Payload preparado com ${messages.length} mensagens`);

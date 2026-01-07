@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, Search, MessageSquare, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getMessages, createMessage, updateMessage, deleteMessage } from "@/lib/api";
+import { getMessages, createMessage, updateMessage, deleteMessage, getOtimaTemplates } from "@/lib/api";
 
 interface Template {
   id: string;
@@ -38,6 +39,8 @@ interface Template {
   usageCount?: number;
   source?: string;
   templateCode?: string;
+  walletName?: string;
+  imageUrl?: string;
 }
 
 export default function Mensagens() {
@@ -48,24 +51,48 @@ export default function Mensagens() {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [formData, setFormData] = useState({ name: "", content: "" });
 
-  const { data: messages = [], isLoading } = useQuery({
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: ['messages'],
     queryFn: getMessages,
   });
 
+  const { data: otimaTemplates = [], isLoading: isLoadingOtima } = useQuery({
+    queryKey: ['otima-templates'],
+    queryFn: getOtimaTemplates,
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+  });
+
+  const isLoading = isLoadingMessages || isLoadingOtima;
+
   // Mapeia os dados da API para o formato esperado
-  const templates: Template[] = messages.map((msg: any) => ({
+  const localTemplates: Template[] = messages.map((msg: any) => ({
     id: String(msg.id),
     name: msg.title || '',
     content: msg.content || '',
     createdAt: new Date(msg.date).toLocaleDateString('pt-BR'),
-    usageCount: 0, // Não temos esse dado na API ainda
+    usageCount: 0,
     source: msg.source || 'local',
     templateCode: msg.template_code || msg.template_id || '',
   }));
 
+  const externalTemplates: Template[] = Array.isArray(otimaTemplates) ? otimaTemplates.map((msg: any) => ({
+    id: msg.id,
+    name: msg.name || '',
+    content: msg.content || '',
+    createdAt: msg.date ? new Date(msg.date).toLocaleDateString('pt-BR') : '-',
+    usageCount: 0,
+    source: msg.source,
+    templateCode: msg.template_code,
+    walletName: msg.wallet_name,
+    imageUrl: msg.image_url,
+  })) : [];
+
+  const templates = [...localTemplates, ...externalTemplates];
+
   const filteredTemplates = templates.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase())
+    t.name.toLowerCase().includes(search.toLowerCase()) ||
+    (t.content && t.content.toLowerCase().includes(search.toLowerCase())) ||
+    (t.walletName && t.walletName.toLowerCase().includes(search.toLowerCase()))
   );
 
   const createMutation = useMutation({
@@ -160,11 +187,11 @@ export default function Mensagens() {
     <div className="space-y-6">
       <PageHeader
         title="Templates de Mensagem"
-        description="Gerencie os templates usados nas campanhas"
+        description="Gerencie os templates locais e visualize templates da Ótima (RCS/WPP)"
       >
         <Button onClick={openNewDialog} className="gradient-primary hover:opacity-90">
           <Plus className="mr-2 h-4 w-4" />
-          Novo Template
+          Novo Template Local
         </Button>
       </PageHeader>
 
@@ -174,7 +201,7 @@ export default function Mensagens() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar templates..."
+              placeholder="Buscar templates (nome, conteúdo ou carteira)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -201,44 +228,78 @@ export default function Mensagens() {
           {filteredTemplates.map((template, index) => (
             <Card
               key={template.id}
-              className="animate-scale-in hover:shadow-md transition-shadow"
+              className="animate-scale-in hover:shadow-md transition-shadow flex flex-col"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                      <MessageSquare className="h-5 w-5 text-primary" />
+                  {/* Imagem do RCS se houver */}
+                  {template.imageUrl && (
+                    <div className="w-full h-32 mb-3 rounded-md overflow-hidden bg-muted">
+                      <img
+                        src={template.imageUrl}
+                        alt="Template RCS"
+                        className="w-full h-full object-cover"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                      />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-base">{template.name}</CardTitle>
+                  )}
+                </div>
+
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2 w-full">
+                    {!template.imageUrl && (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                        <MessageSquare className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <CardTitle className="text-base truncate" title={template.name}>{template.name}</CardTitle>
                         {template.source === 'otima_wpp' && (
-                          <Badge variant="outline" className="text-xs">Ótima WPP</Badge>
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">WPP</Badge>
                         )}
                         {template.source === 'otima_rcs' && (
-                          <Badge variant="outline" className="text-xs">Ótima RCS</Badge>
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">RCS</Badge>
                         )}
                       </div>
-                      <CardDescription className="text-xs">{template.createdAt}</CardDescription>
-                      {template.templateCode && (
-                        <CardDescription className="text-xs text-muted-foreground">
-                          Código: {template.templateCode}
-                        </CardDescription>
+
+                      {template.walletName && (
+                        <div className="mt-1">
+                          <Badge variant="secondary" className="text-[10px] h-5">
+                            Carteira: {template.walletName}
+                          </Badge>
+                        </div>
                       )}
+
+                      <div className="flex flex-col mt-1 gap-0.5">
+                        <CardDescription className="text-xs">{template.createdAt}</CardDescription>
+                        {template.templateCode && (
+                          <CardDescription className="text-xs text-muted-foreground">
+                            Cód: {template.templateCode}
+                          </CardDescription>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground line-clamp-3">{template.content}</p>
-                <div className="flex items-center justify-between">
-                  {template.usageCount !== undefined && (
+              <CardContent className="space-y-4 flex-1 flex flex-col justify-between">
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                  {template.content || '(Sem conteúdo de texto)'}
+                </p>
+                <div className="flex items-center justify-between pt-2">
+                  {template.usageCount !== undefined && template.source === 'local' && (
                     <span className="text-xs text-muted-foreground">
                       Usado {template.usageCount} vezes
                     </span>
                   )}
-                  <div className="flex gap-1">
+                  {template.source !== 'local' && (
+                    <span className="text-xs text-muted-foreground italic">
+                      Template externo
+                    </span>
+                  )}
+                  <div className="flex gap-1 ml-auto">
                     {template.source === 'local' && (
                       <>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(template)}>
@@ -324,8 +385,8 @@ export default function Mensagens() {
             <Button variant="outline" onClick={() => setIsOpen(false)} disabled={createMutation.isPending || updateMutation.isPending}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               className="gradient-primary hover:opacity-90"
               disabled={createMutation.isPending || updateMutation.isPending}
             >

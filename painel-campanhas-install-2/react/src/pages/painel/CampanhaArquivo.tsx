@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -26,6 +27,7 @@ import {
   getCarteiras,
   getBasesCarteira,
   checkBaseUpdate,
+  getOtimaTemplates,
 } from "@/lib/api";
 
 const providers = [
@@ -54,17 +56,59 @@ export default function CampanhaArquivo() {
   const [baseUpdateStatus, setBaseUpdateStatus] = useState<{ isUpdated: boolean; message: string } | null>(null);
 
   // Buscar templates de mensagem
-  const { data: templatesData = [], isLoading: templatesLoading } = useQuery({
+  const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['messages'],
     queryFn: getMessages,
   });
 
-  const templates = templatesData.map((t: any) => ({
-    id: String(t.id),
-    name: t.title || '',
-    source: t.source || 'local',
-    templateCode: t.template_code || t.template_id || '',
-  }));
+  // Buscar templates Otima
+  const { data: otimaTemplates = [], isLoading: otimaLoading } = useQuery({
+    queryKey: ['otima-templates'],
+    queryFn: getOtimaTemplates,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const templatesLoading = messagesLoading || otimaLoading;
+
+  // Processar e filtrar templates
+  const templates = useMemo(() => {
+    // Templates Locais
+    const local = messages.map((t: any) => ({
+      id: String(t.id),
+      name: t.title || '',
+      source: t.source || 'local',
+      templateCode: t.template_code || t.template_id || '',
+      walletId: null
+    }));
+
+    // Templates Otima
+    const external = Array.isArray(otimaTemplates) ? otimaTemplates.map((t: any) => ({
+      id: t.id,
+      name: t.name || t.template_code || '',
+      source: t.source,
+      templateCode: t.template_code || '',
+      walletId: t.wallet_id,
+      walletName: t.wallet_name,
+      imageUrl: t.image_url
+    })) : [];
+
+    const allTemplates = [...local, ...external];
+
+    // Se tiver carteira selecionada, filtra os templates externos
+    if (carteira) {
+      console.log('🔍 [CampanhaArquivo] Filtrando templates para carteira:', carteira);
+      return allTemplates.filter(t => {
+        // Local sempre exibe
+        if (t.source === 'local') return true;
+
+        // Verifica se o template pertence à carteira selecionada
+        return String(t.walletId) === String(carteira);
+      });
+    }
+
+    // Se nenhuma carteira selecionada, mostra apenas locais
+    return local;
+  }, [messages, otimaTemplates, carteira]);
 
   // Buscar carteiras
   const { data: carteiras = [] } = useQuery({
@@ -89,14 +133,14 @@ export default function CampanhaArquivo() {
   // Backend agora retorna array simples de strings: ['base1', 'base2', ...]
   const bases = carteira
     ? (basesCarteira.length > 0
-        ? allBases.filter((base: any) => {
-            const baseName = (base.name || '').trim().toLowerCase();
-            // basesCarteira agora é array de strings
-            return basesCarteira.some((bc: string) =>
-              bc.trim().toLowerCase() === baseName
-            );
-          })
-        : [])
+      ? allBases.filter((base: any) => {
+        const baseName = (base.name || '').trim().toLowerCase();
+        // basesCarteira agora é array de strings
+        return basesCarteira.some((bc: string) =>
+          bc.trim().toLowerCase() === baseName
+        );
+      })
+      : [])
     : [];
 
   // Verificar atualização da base quando selecionada
@@ -116,7 +160,7 @@ export default function CampanhaArquivo() {
   }, [baseUpdateData]);
 
   const uploadMutation = useMutation({
-    mutationFn: ({ file, matchField }: { file: File; matchField: string }) => 
+    mutationFn: ({ file, matchField }: { file: File; matchField: string }) =>
       uploadCampaignFile(file, matchField),
     onSuccess: (data: any) => {
       setTempId(data.temp_id);
@@ -267,7 +311,7 @@ export default function CampanhaArquivo() {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Formato do arquivo CSV:</strong> O arquivo deve conter as colunas: <strong>nome</strong>, <strong>telefone</strong> (obrigatório: formato 55 + DDD + Número, ex: 5511999999999), <strong>cpf</strong> (obrigatório: pelo menos 11 dígitos). 
+          <strong>Formato do arquivo CSV:</strong> O arquivo deve conter as colunas: <strong>nome</strong>, <strong>telefone</strong> (obrigatório: formato 55 + DDD + Número, ex: 5511999999999), <strong>cpf</strong> (obrigatório: pelo menos 11 dígitos).
           Colunas opcionais: <strong>carteira</strong>, <strong>contrato</strong>, <strong>id_carteira</strong>.
         </AlertDescription>
       </Alert>
@@ -344,8 +388,8 @@ export default function CampanhaArquivo() {
                   <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
                     <AlertCircle className="h-4 w-4" />
                     <p className="text-sm">
-                      {uploadMutation.error instanceof Error 
-                        ? uploadMutation.error.message 
+                      {uploadMutation.error instanceof Error
+                        ? uploadMutation.error.message
                         : "Erro ao validar arquivo"}
                     </p>
                   </div>

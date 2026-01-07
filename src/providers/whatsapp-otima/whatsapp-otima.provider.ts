@@ -51,7 +51,23 @@ export class WhatsappOtimaProvider extends BaseProvider {
     const token = credentials.token || credentials.authorization;
     const broker_code = credentials.broker_code || '';
     const customer_code = credentials.customer_code || '';
-    const template_code = credentials.template_code || 'default'; // Pode ser configurado depois
+
+    // Tenta extrair template code da mensagem (enviado pelo WordPress como JSON)
+    let template_code = credentials.template_code || 'default';
+    let original_message_data = null;
+
+    if (data.length > 0 && data[0].mensagem) {
+      try {
+        const parsed = JSON.parse(data[0].mensagem);
+        if (parsed.template_code) {
+          template_code = parsed.template_code;
+          original_message_data = parsed;
+          this.logger.log(`📝 [WhatsApp Ótima] Usando template dinâmico: ${template_code}`);
+        }
+      } catch (e) {
+        // Não é JSON, usa a mensagem como está
+      }
+    }
 
     // Formata mensagens para o formato da API Ótima
     const messages: HsmMessage[] = data.map((item) => {
@@ -61,8 +77,8 @@ export class WhatsappOtimaProvider extends BaseProvider {
       const phoneWithoutPrefix = phone.startsWith('+55')
         ? phone.substring(3)
         : phone.startsWith('55')
-        ? phone.substring(2)
-        : phone;
+          ? phone.substring(2)
+          : phone;
 
       const message: HsmMessage = {
         phone: phoneWithoutPrefix,

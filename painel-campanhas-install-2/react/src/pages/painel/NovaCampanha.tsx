@@ -30,6 +30,7 @@ import {
   getCarteiras,
   getBasesCarteira,
   checkBaseUpdate,
+  getOtimaTemplates,
 } from "@/lib/api";
 
 const providers = [
@@ -127,22 +128,66 @@ export default function NovaCampanha() {
 
     console.log('🟢 [NovaCampanha] Bases filtradas:', basesFiltradas.map((b: any) => b?.name || b?.id));
     console.log('🟢 [NovaCampanha] Total após filtro:', basesFiltradas.length);
-    
+
     return basesFiltradas;
   }, [formData.carteira, basesCarteira, allBases]);
 
   // Buscar templates de mensagem
-  const { data: templatesData = [], isLoading: templatesLoading } = useQuery({
+  const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['messages'],
     queryFn: getMessages,
   });
 
-  const templates = templatesData.map((t: any) => ({
-    id: String(t.id),
-    name: t.title || '',
-    source: t.source || 'local',
-    templateCode: t.template_code || t.template_id || '',
-  }));
+  // Buscar templates Otima
+  const { data: otimaTemplates = [], isLoading: otimaLoading } = useQuery({
+    queryKey: ['otima-templates'],
+    queryFn: getOtimaTemplates,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const templatesLoading = messagesLoading || otimaLoading;
+
+  // Processar e filtrar templates
+  const templates = useMemo(() => {
+    // Templates Locais
+    const local = messages.map((t: any) => ({
+      id: String(t.id),
+      name: t.title || '',
+      source: t.source || 'local',
+      templateCode: t.template_code || t.template_id || '',
+      walletId: null
+    }));
+
+    // Templates Otima
+    const external = Array.isArray(otimaTemplates) ? otimaTemplates.map((t: any) => ({
+      id: t.id,
+      name: t.name || t.template_code || '',
+      source: t.source,
+      templateCode: t.template_code || '',
+      walletId: t.wallet_id,
+      walletName: t.wallet_name,
+      imageUrl: t.image_url
+    })) : [];
+
+    const allTemplates = [...local, ...external];
+
+    // Se tiver carteira selecionada, filtra os templates externos
+    if (formData.carteira) {
+      console.log('🔍 [NovaCampanha] Filtrando templates para carteira:', formData.carteira);
+      return allTemplates.filter(t => {
+        // Local sempre exibe? Ou deve filtrar também? 
+        // Geralmente local é global, mas Otima é restrito por carteira.
+        if (t.source === 'local') return true;
+
+        // Verifica se o template pertence à carteira selecionada
+        // A comparação deve ser feita como string para garantir
+        return String(t.walletId) === String(formData.carteira);
+      });
+    }
+
+    // Se nenhuma carteira selecionada, mostra apenas locais (ou todos? Melhor mostrar locais)
+    return local;
+  }, [messages, otimaTemplates, formData.carteira]);
 
   // Buscar filtros quando base for selecionada
   const { data: availableFilters = [], isLoading: filtersLoading } = useQuery({
@@ -507,21 +552,19 @@ export default function NovaCampanha() {
         {[1, 2, 3, 4].map((s) => (
           <div key={s} className="flex items-center">
             <div
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all ${
-                s === step
-                  ? "gradient-primary text-primary-foreground shadow-glow"
-                  : s < step
+              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all ${s === step
+                ? "gradient-primary text-primary-foreground shadow-glow"
+                : s < step
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
-              }`}
+                }`}
             >
               {s}
             </div>
             {s < 4 && (
               <div
-                className={`h-1 w-12 sm:w-20 mx-2 rounded-full ${
-                  s < step ? "bg-primary" : "bg-muted"
-                }`}
+                className={`h-1 w-12 sm:w-20 mx-2 rounded-full ${s < step ? "bg-primary" : "bg-muted"
+                  }`}
               />
             )}
           </div>
@@ -613,16 +656,15 @@ export default function NovaCampanha() {
                           console.log('🔵 [NovaCampanha] Base selecionada:', base.id, base.name);
                           setFormData({ ...formData, base: base.id });
                         }}
-                        className={`rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 w-full ${
-                          formData.base === base.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border"
-                        }`}
+                        className={`rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 w-full ${formData.base === base.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border"
+                          }`}
                       >
-                        <p 
-                          className="font-semibold text-sm truncate w-full" 
+                        <p
+                          className="font-semibold text-sm truncate w-full"
                           title={base.name}
-                          style={{ 
+                          style={{
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -775,11 +817,10 @@ export default function NovaCampanha() {
                 {providers.map((provider, idx) => (
                   <label
                     key={`provider-${provider.id || idx}`}
-                    className={`flex items-center gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all ${
-                      formData.providers.includes(provider.id)
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/30"
-                    } ${!provider.available && "opacity-50 cursor-not-allowed"}`}
+                    className={`flex items-center gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all ${formData.providers.includes(provider.id)
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/30"
+                      } ${!provider.available && "opacity-50 cursor-not-allowed"}`}
                   >
                     <Checkbox
                       checked={formData.providers.includes(provider.id)}
@@ -836,8 +877,8 @@ export default function NovaCampanha() {
             Voltar
           </Button>
           {step < 4 ? (
-            <Button 
-              onClick={() => setStep(step + 1)} 
+            <Button
+              onClick={() => setStep(step + 1)}
               disabled={!canGoNext()}
               className="gradient-primary hover:opacity-90"
             >
