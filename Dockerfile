@@ -16,10 +16,15 @@ RUN NODE_ENV=development pnpm install --frozen-lockfile
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 
+# Generate Prisma Client for TypeScript compilation
+# Use a dummy DATABASE_URL since we only need the types, not a real connection
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+RUN npx prisma generate
+
 # Copy source code (this changes most frequently)
 COPY . .
 
-# Build the application (Prisma client will be generated at runtime)
+# Build the application
 RUN pnpm build
 
 # Production stage
