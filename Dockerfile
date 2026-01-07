@@ -12,9 +12,8 @@ COPY package.json pnpm-lock.yaml ./
 # Force install devDependencies even if NODE_ENV=production
 RUN NODE_ENV=development pnpm install --frozen-lockfile
 
-# Copy Prisma schema
+# Copy Prisma schema (NOT the config file - it causes validation issues)
 COPY prisma ./prisma
-COPY prisma.config.ts ./
 
 # Generate Prisma Client for TypeScript compilation
 # Use a dummy DATABASE_URL since we only need the types, not a real connection
