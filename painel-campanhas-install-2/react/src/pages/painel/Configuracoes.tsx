@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, Database, Link2, CheckCircle, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -30,11 +30,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  getCarteiras, 
-  getCarteira, 
-  createCarteira, 
-  updateCarteira, 
+import {
+  getCarteiras,
+  getCarteira,
+  createCarteira,
+  updateCarteira,
   deleteCarteira,
   getBasesCarteira,
   vincularBaseCarteira,
@@ -57,10 +57,10 @@ export default function Configuracoes() {
   const [isBasesDialogOpen, setIsBasesDialogOpen] = useState(false);
   const [selectedCarteiraId, setSelectedCarteiraId] = useState<string>("");
   const [editingCarteira, setEditingCarteira] = useState<Carteira | null>(null);
-  const [formData, setFormData] = useState({ 
-    nome: "", 
-    id_carteira: "", 
-    descricao: "" 
+  const [formData, setFormData] = useState({
+    nome: "",
+    id_carteira: "",
+    descricao: ""
   });
   const [selectedBases, setSelectedBases] = useState<string[]>([]);
   const [searchBase, setSearchBase] = useState("");
@@ -70,6 +70,41 @@ export default function Configuracoes() {
     queryKey: ['carteiras'],
     queryFn: getCarteiras,
   });
+
+  /* 
+  // Removido para evitar loop infinito (Error #185)
+  // Buscar bases vinculadas para todas as carteiras
+  const basesQueries = useQueries({
+    queries: carteiras.map((carteira: any) => ({
+      queryKey: ['bases-carteira-list', String(carteira.id)],
+      queryFn: async () => {
+        console.log('🔵 [Config] Buscando bases para carteira:', carteira.id, carteira.nome);
+        const result = await getBasesCarteira(String(carteira.id));
+        console.log('🔵 [Config] Bases retornadas para carteira', carteira.id, ':', result);
+        return Array.isArray(result) ? result : [];
+      },
+      enabled: !!carteira.id,
+      staleTime: 30000, // Cache por 30 segundos
+    })),
+  });
+
+  // Mapear bases vinculadas por carteira ID
+  const basesPorCarteira = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    carteiras.forEach((carteira: any, index: number) => {
+      const queryResult = basesQueries[index];
+      if (!queryResult) return;
+
+      const bases = queryResult.data;
+      const basesArray = Array.isArray(bases) ? bases : [];
+      map[String(carteira.id)] = basesArray;
+      if (basesArray.length > 0) {
+        console.log('🟢 [Config] Mapeando bases para carteira', carteira.id, ':', basesArray);
+      }
+    });
+    return map;
+  }, [carteiras.map((c: any) => c.id).join(','), basesQueries.map(q => q.dataUpdatedAt).join(',')]);
+  */
 
   // Buscar bases disponíveis
   const { data: bases = [] } = useQuery({
@@ -91,18 +126,27 @@ export default function Configuracoes() {
   });
 
   useEffect(() => {
-    if (!isBasesDialogOpen) return;
+    if (!isBasesDialogOpen) {
+      return; // Não faz nada quando o dialog está fechado
+    }
 
-    if (basesCarteira && Array.isArray(basesCarteira) && basesCarteira.length > 0) {
-      const vinculadas = basesCarteira.map((b: any) => {
-        // Garante que sempre retorna string
-        const nome = b?.nome_base || b?.base || b?.name || b?.id;
-        return nome ? String(nome) : null;
-      }).filter((v): v is string => Boolean(v));
-      setSelectedBases(vinculadas);
-    } else {
-      // Só seta para vazio se não estiver já vazio
-      setSelectedBases(prev => prev.length > 0 ? [] : prev);
+    // Backend agora retorna array simples de strings: ['base1', 'base2', ...]
+    if (basesCarteira && Array.isArray(basesCarteira)) {
+      // Filtra apenas strings válidas
+      const vinculadas = basesCarteira
+        .filter((b): b is string => typeof b === 'string' && b.trim().length > 0)
+        .map(b => b.trim());
+
+      // Só atualiza se realmente mudou para evitar loops
+      setSelectedBases((prev) => {
+        const prevSorted = [...prev].sort().join(',');
+        const newSorted = [...vinculadas].sort().join(',');
+        if (prevSorted === newSorted) {
+          return prev; // Retorna o mesmo array se não mudou
+        }
+        console.log('🟢 [Config] Bases vinculadas carregadas:', vinculadas);
+        return vinculadas;
+      });
     }
   }, [basesCarteira, isBasesDialogOpen]);
 
@@ -111,6 +155,7 @@ export default function Configuracoes() {
     onSuccess: () => {
       toast({ title: "Carteira criada com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ['carteiras'] });
+      queryClient.invalidateQueries({ queryKey: ['bases-carteira-list'] });
       setIsDialogOpen(false);
       setFormData({ nome: "", id_carteira: "", descricao: "" });
       setEditingCarteira(null);
@@ -129,6 +174,7 @@ export default function Configuracoes() {
     onSuccess: () => {
       toast({ title: "Carteira atualizada com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ['carteiras'] });
+      queryClient.invalidateQueries({ queryKey: ['bases-carteira-list'] });
       setIsDialogOpen(false);
       setFormData({ nome: "", id_carteira: "", descricao: "" });
       setEditingCarteira(null);
@@ -147,6 +193,7 @@ export default function Configuracoes() {
     onSuccess: () => {
       toast({ title: "Carteira excluída com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ['carteiras'] });
+      queryClient.invalidateQueries({ queryKey: ['bases-carteira-list'] });
     },
     onError: (error: any) => {
       toast({
@@ -187,15 +234,57 @@ export default function Configuracoes() {
       console.log('🔵 [Configuracoes] Enviando requisição:', { carteiraId, bases });
       return vincularBaseCarteira(carteiraId, bases);
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any, variables) => {
       console.log('✅ [Configuracoes] Vínculos salvos com sucesso:', data);
-      toast({ 
+      console.log('✅ [Configuracoes] Carteira ID:', variables.carteiraId);
+      console.log('✅ [Configuracoes] Count retornado:', data?.count);
+      console.log('✅ [Configuracoes] Bases enviadas:', variables.bases);
+
+      // Se o count for 0, significa que não salvou nada
+      if (data?.count === 0) {
+        console.error('🔴 [Configuracoes] ATENÇÃO: Nenhuma base foi salva! Count = 0');
+        toast({
+          title: "Atenção",
+          description: "Nenhuma base foi vinculada. Verifique os logs do servidor.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
         title: "Bases vinculadas com sucesso!",
         description: data?.count ? `${data.count} base(s) vinculada(s)` : undefined
       });
-      queryClient.invalidateQueries({ queryKey: ['bases-carteira', selectedCarteiraId] });
-      queryClient.invalidateQueries({ queryKey: ['carteiras'] });
+
+      // Fecha o dialog primeiro
       setIsBasesDialogOpen(false);
+
+      // Aguarda um pouco para garantir que o backend salvou
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Invalida e refaz TODAS as queries de bases vinculadas
+      const carteiraIdStr = String(variables.carteiraId);
+      const carteiraIdNum = parseInt(variables.carteiraId, 10);
+
+      // Invalida todas as queries relacionadas
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['bases-carteira', carteiraIdStr] }),
+        queryClient.invalidateQueries({ queryKey: ['bases-carteira', carteiraIdNum] }),
+        queryClient.invalidateQueries({ queryKey: ['bases-carteira-list', carteiraIdStr] }),
+        queryClient.invalidateQueries({ queryKey: ['bases-carteira-list', carteiraIdNum] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === 'bases-carteira-list'
+        }),
+      ]);
+
+      // Força refetch de todas as queries de bases vinculadas
+      await queryClient.refetchQueries({
+        predicate: (query) => query.queryKey[0] === 'bases-carteira-list',
+        type: 'active'
+      });
+
+      console.log('✅ [Configuracoes] Queries invalidadas e refetchadas');
     },
     onError: (error: any) => {
       console.error('🔴 [Configuracoes] Erro ao vincular bases:', error);
@@ -216,7 +305,7 @@ export default function Configuracoes() {
       });
       return;
     }
-    
+
     if (!Array.isArray(selectedBases) || selectedBases.length === 0) {
       toast({
         title: "Atenção",
@@ -225,7 +314,7 @@ export default function Configuracoes() {
       });
       return;
     }
-    
+
     // Log detalhado das bases que serão salvas
     console.log('🔵 [Configuracoes] Salvando vínculos:', {
       carteiraId: selectedCarteiraId,
@@ -238,14 +327,14 @@ export default function Configuracoes() {
         length: String(baseName).length
       }))
     });
-    
+
     // Verifica se as bases selecionadas existem na lista de bases disponíveis
     const basesDisponiveisNomes = bases.map((b: any) => String(b?.name || b?.id || ''));
     const basesNaoEncontradas = selectedBases.filter(baseName => !basesDisponiveisNomes.includes(baseName));
     if (basesNaoEncontradas.length > 0) {
       console.warn('⚠️ [Configuracoes] Algumas bases selecionadas não foram encontradas na lista:', basesNaoEncontradas);
     }
-    
+
     vincularMutation.mutate({ carteiraId: selectedCarteiraId, bases: selectedBases });
   };
 
@@ -275,8 +364,10 @@ export default function Configuracoes() {
   };
 
   const openBasesDialog = (carteiraId: string) => {
+    // Limpa estados antes de abrir
+    setSelectedBases([]);
+    setSearchBase("");
     setSelectedCarteiraId(carteiraId);
-    setSearchBase(""); // Limpa o campo de busca
     setIsBasesDialogOpen(true);
   };
 
@@ -324,9 +415,9 @@ export default function Configuracoes() {
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                       <Database className="h-6 w-6 text-primary" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <CardTitle className="text-lg">{carteira.nome}</CardTitle>
-                      <CardDescription className="flex items-center gap-2 mt-1">
+                      <CardDescription className="flex items-center gap-2 mt-1 flex-wrap">
                         <Badge variant="secondary">ID: {carteira.id_carteira}</Badge>
                         {carteira.ativo ? (
                           <Badge variant="default">Ativa</Badge>
@@ -337,6 +428,25 @@ export default function Configuracoes() {
                       {carteira.descricao && (
                         <p className="text-sm text-muted-foreground mt-1">{carteira.descricao}</p>
                       )}
+
+                      {/* Bases vinculadas - Removido temporariamente para evitar loops de renderização
+                      <div className="mt-2">
+                        {basesQueries[index]?.isLoading ? (
+                          <p className="text-xs text-muted-foreground">Carregando bases...</p>
+                        ) : basesPorCarteira[String(carteira.id)]?.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className="text-xs text-muted-foreground font-medium">Bases:</span>
+                            {basesPorCarteira[String(carteira.id)].map((base: string) => (
+                              <Badge key={base} variant="outline" className="text-xs">
+                                {base}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic">Nenhuma base vinculada</p>
+                        )}
+                      </div>
+                      */}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -448,7 +558,17 @@ export default function Configuracoes() {
       </Dialog>
 
       {/* Bases Dialog */}
-      <Dialog open={isBasesDialogOpen} onOpenChange={setIsBasesDialogOpen}>
+      <Dialog
+        open={isBasesDialogOpen}
+        onOpenChange={(open) => {
+          setIsBasesDialogOpen(open);
+          if (!open) {
+            // Limpa estados quando fecha
+            setSelectedBases([]);
+            setSearchBase("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Vincular Bases</DialogTitle>

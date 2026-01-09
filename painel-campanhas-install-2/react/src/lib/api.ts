@@ -21,7 +21,7 @@ const getAjaxUrl = () => {
 export const wpAjax = async (action: string, data: Record<string, any> = {}, nonceType: 'nonce' | 'cmNonce' = 'nonce') => {
   const formData = new FormData();
   formData.append('action', action);
-  
+
   // Adiciona nonce se disponível
   if (typeof (window as any).pcAjax !== 'undefined') {
     // Para ações cm_* usa cmNonce, para pc_* usa nonce
@@ -33,19 +33,41 @@ export const wpAjax = async (action: string, data: Record<string, any> = {}, non
       console.warn(`⚠️ [API] Nonce ${nonceType} não encontrado para ação: ${action}`);
     }
   }
-  
+
   // Adiciona outros dados
   Object.keys(data).forEach(key => {
     if (data[key] !== null && data[key] !== undefined) {
       if (data[key] instanceof File) {
         formData.append(key, data[key]);
+      } else if (Array.isArray(data[key])) {
+        // Para arrays, envia cada item separadamente com [] no nome
+        // Isso faz o PHP receber como array nativo
+        if (key === 'bases' && action === 'pc_vincular_base_carteira') {
+          // Envia como array PHP nativo
+          data[key].forEach((item: any, index: number) => {
+            formData.append(`${key}[${index}]`, item);
+          });
+          console.log('🔵 [API] Enviando bases como array PHP nativo:', data[key]);
+        } else {
+          // Para outros arrays, envia como JSON
+          formData.append(key, JSON.stringify(data[key]));
+        }
       } else if (typeof data[key] === 'object') {
-        formData.append(key, JSON.stringify(data[key]));
+        const jsonValue = JSON.stringify(data[key]);
+        formData.append(key, jsonValue);
       } else {
         formData.append(key, data[key]);
       }
     }
   });
+
+  // Log do FormData para debug (apenas para vincular bases)
+  if (action === 'pc_vincular_base_carteira') {
+    console.log('🔵 [API] FormData completo:');
+    for (const [key, value] of formData.entries()) {
+      console.log(`🔵 [API]   ${key}:`, value);
+    }
+  }
 
   try {
     const ajaxUrl = getAjaxUrl();
@@ -64,11 +86,33 @@ export const wpAjax = async (action: string, data: Record<string, any> = {}, non
     }
 
     const result = await response.json();
-    
+
+    // Log detalhado para debug
+    if (action === 'pc_get_bases_carteira') {
+      console.log('🔵 [API] Resposta completa do backend:', result);
+      console.log('🔵 [API] result.success:', result.success);
+      console.log('🔵 [API] result.data:', result.data);
+      console.log('🔵 [API] result.data type:', typeof result.data);
+      console.log('🔵 [API] result.data isArray:', Array.isArray(result.data));
+    }
+
     if (!result.success) {
       throw new Error(result.data?.message || result.data || 'Erro na requisição');
     }
-    
+
+    // Garante que retorna array se for pc_get_bases_carteira
+    if (action === 'pc_get_bases_carteira') {
+      const data = result.data;
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data && typeof data === 'object') {
+        // Se vier como objeto, tenta converter
+        console.warn('⚠️ [API] Dados não são array, tentando converter:', data);
+        return Object.values(data);
+      }
+      return [];
+    }
+
     return result.data;
   } catch (error) {
     console.error('Erro na requisição AJAX:', error);
@@ -113,7 +157,7 @@ export const scheduleCampaign = (data: Record<string, any>) => {
     record_limit: data.record_limit || 0,
     exclude_recent_phones: data.exclude_recent_phones !== undefined ? data.exclude_recent_phones : 1,
   };
-  
+
   // Adiciona campos para templates da Ótima
   if (data.template_code) {
     payload.template_code = data.template_code;
@@ -121,7 +165,7 @@ export const scheduleCampaign = (data: Record<string, any>) => {
   if (data.template_source) {
     payload.template_source = data.template_source;
   }
-  
+
   return wpAjax('cm_schedule_campaign', payload, 'cmNonce');
 };
 
@@ -170,6 +214,10 @@ export const updateMessage = (id: string, data: Record<string, any>) => {
 
 export const deleteMessage = (id: string) => {
   return wpAjax('pc_delete_message', { message_id: id });
+};
+
+export const getOtimaTemplates = () => {
+  return wpAjax('pc_get_otima_templates', {});
 };
 
 export const getTemplateContent = async (id: string) => {
@@ -257,30 +305,30 @@ export const uploadCampaignFile = async (file: File, matchField: string) => {
   const formData = new FormData();
   formData.append('csv_file', file);
   formData.append('match_field', matchField);
-  
+
   const ajaxUrl = typeof (window as any).pcAjax !== 'undefined' && (window as any).pcAjax?.ajaxurl
     ? (window as any).pcAjax.ajaxurl
     : '/wp-admin/admin-ajax.php';
-  
+
   const nonce = typeof (window as any).pcAjax !== 'undefined' && (window as any).pcAjax?.nonce
     ? (window as any).pcAjax.nonce
     : '';
-  
+
   formData.append('action', 'cpf_cm_upload_csv');
   formData.append('nonce', nonce);
-  
+
   const response = await fetch(ajaxUrl, {
     method: 'POST',
     body: formData,
     credentials: 'same-origin',
   });
-  
+
   const result = await response.json();
-  
+
   if (!result.success) {
     throw new Error(result.data?.message || result.data || 'Erro no upload');
   }
-  
+
   return result.data;
 };
 
@@ -353,25 +401,38 @@ export const deleteCarteira = (id: string) => {
   return wpAjax('pc_delete_carteira', { id });
 };
 
-export const getBasesCarteira = (carteiraId: string) => {
-  return wpAjax('pc_get_bases_carteira', { carteira_id: parseInt(carteiraId) });
+export const getBasesCarteira = async (carteiraId: string) => {
+  const carteiraIdNum = parseInt(carteiraId, 10);
+  console.log('🔵 [API] getBasesCarteira chamado:', { carteiraId, carteiraIdNum });
+  const result = await wpAjax('pc_get_bases_carteira', { carteira_id: carteiraIdNum });
+  console.log('🔵 [API] getBasesCarteira resultado:', { carteiraId, result, type: typeof result, isArray: Array.isArray(result) });
+  return result;
 };
 
-export const vincularBaseCarteira = (carteiraId: string, bases: string[]) => {
+export const vincularBaseCarteira = async (carteiraId: string, bases: string[]) => {
   console.log('🔵 [API] vincularBaseCarteira chamado:', { carteiraId, bases, basesType: typeof bases, isArray: Array.isArray(bases) });
-  
+
   // Garante que bases é um array
   const basesArray = Array.isArray(bases) ? bases : [];
-  
+
+  if (basesArray.length === 0) {
+    console.warn('⚠️ [API] Nenhuma base para vincular!');
+    throw new Error('Nenhuma base selecionada para vincular');
+  }
+
   // Garante que carteiraId é um número válido
   const carteiraIdNum = parseInt(carteiraId, 10);
   if (isNaN(carteiraIdNum) || carteiraIdNum <= 0) {
     throw new Error('ID da carteira inválido');
   }
-  
-  console.log('🔵 [API] Enviando para wpAjax:', { carteira_id: carteiraIdNum, bases: basesArray });
-  
-  return wpAjax('pc_vincular_base_carteira', { carteira_id: carteiraIdNum, bases: basesArray });
+
+  console.log('🔵 [API] Enviando para wpAjax:', { carteira_id: carteiraIdNum, bases: basesArray, basesCount: basesArray.length });
+
+  const result = await wpAjax('pc_vincular_base_carteira', { carteira_id: carteiraIdNum, bases: basesArray });
+
+  console.log('🔵 [API] Resposta do vincularBaseCarteira:', result);
+
+  return result;
 };
 
 // Iscas
@@ -418,28 +479,40 @@ export const saveMicroserviceConfig = (data: Record<string, any>) => {
   return wpAjax('pc_save_microservice_config', data);
 };
 
-export const getStaticCredentials = () => {
-  return wpAjax('pc_get_static_credentials', {});
+export const getStaticCredentials = async () => {
+  console.log('🔵 [API] Buscando credenciais estáticas...');
+  const result = await wpAjax('pc_get_static_credentials', {});
+  console.log('🔵 [API] Credenciais estáticas retornadas:', result);
+  console.log('🔵 [API] Campos preenchidos:', Object.entries(result || {}).filter(([_, v]) => v && String(v).trim()).map(([k]) => k));
+  return result;
 };
 
 export const saveStaticCredentials = (data: Record<string, any>) => {
   return wpAjax('pc_save_static_credentials', data);
 };
 
+export const getOtimaCustomers = (provider: 'rcs' | 'wpp' = 'rcs') => {
+  return wpAjax('pc_get_otima_customers', { provider });
+};
+
+export const listCredentials = () => {
+  return wpAjax('pc_list_credentials', {});
+};
+
 export const createCredential = (data: Record<string, any>) => {
   return wpAjax('pc_create_credential', data);
 };
 
-export const getCredential = (id: string) => {
-  return wpAjax('pc_get_credential', { id });
+export const getCredential = (provider: string, envId: string) => {
+  return wpAjax('pc_get_credential', { provider, env_id: envId });
 };
 
-export const updateCredential = (id: string, data: Record<string, any>) => {
-  return wpAjax('pc_update_credential', { id, ...data });
+export const updateCredential = (provider: string, envId: string, data: Record<string, any>) => {
+  return wpAjax('pc_update_credential', { provider, env_id: envId, credential_data: data });
 };
 
-export const deleteCredential = (id: string) => {
-  return wpAjax('pc_delete_credential', { id });
+export const deleteCredential = (provider: string, envId: string) => {
+  return wpAjax('pc_delete_credential', { provider, env_id: envId });
 };
 
 // Custom Providers APIs

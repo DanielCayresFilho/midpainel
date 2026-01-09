@@ -61,8 +61,8 @@ export class WhatsappOtimaProvider extends BaseProvider {
       const phoneWithoutPrefix = phone.startsWith('+55')
         ? phone.substring(3)
         : phone.startsWith('55')
-        ? phone.substring(2)
-        : phone;
+          ? phone.substring(2)
+          : phone;
 
       const message: HsmMessage = {
         phone: phoneWithoutPrefix,

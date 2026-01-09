@@ -110,71 +110,24 @@ export default function NovaCampanha() {
       return [];
     }
 
-    // Extrai os nomes das bases vinculadas (pode vir como objeto ou string)
-    const nomesBasesVinculadas = basesCarteira.map((bc: any) => {
-      const nome = bc?.nome_base || bc?.base || bc?.name || bc;
-      return String(nome).trim().toLowerCase();
-    }).filter(Boolean);
+    // Backend agora retorna array simples de strings: ['base1', 'base2', ...]
+    // Normaliza para lowercase para comparação case-insensitive
+    const nomesVinculados = basesCarteira
+      .filter((b): b is string => typeof b === 'string')
+      .map(b => b.trim().toLowerCase());
 
-    console.log('🔵 [NovaCampanha] Bases da carteira (raw):', basesCarteira);
-    console.log('🔵 [NovaCampanha] Nomes das bases vinculadas (normalizados):', nomesBasesVinculadas);
-    console.log('🔵 [NovaCampanha] Total de bases disponíveis:', allBases.length);
-    
-    // Log das primeiras 5 bases disponíveis para debug
-    console.log('🔵 [NovaCampanha] Primeiras 5 bases disponíveis:', allBases.slice(0, 5).map((b: any) => ({
-      id: b?.id,
-      name: b?.name,
-      nameNormalized: String(b?.name || b?.id || '').trim().toLowerCase(),
-      full: b
-    })));
+    console.log('🟢 [NovaCampanha] Bases vinculadas (normalizado):', nomesVinculados);
+    console.log('🟢 [NovaCampanha] Total de bases disponíveis:', allBases.length);
 
-    // Filtra as bases disponíveis que estão vinculadas
-    // Usa comparação case-insensitive e normalizada
+    // Filtra bases disponíveis usando MATCH EXATO (case-insensitive)
     const basesFiltradas = allBases.filter((base: any) => {
-      const baseName = String(base?.name || base?.id || '').trim();
-      const baseNameNormalized = baseName.toLowerCase();
-      
-      // Tenta match exato primeiro (case-insensitive)
-      let match = nomesBasesVinculadas.includes(baseNameNormalized);
-      
-      // Se não encontrou, tenta match parcial (para casos de espaços extras, etc)
-      if (!match && nomesBasesVinculadas.length > 0) {
-        match = nomesBasesVinculadas.some((nomeVinculado: string) => {
-          return baseNameNormalized === nomeVinculado || 
-                 baseNameNormalized.includes(nomeVinculado) || 
-                 nomeVinculado.includes(baseNameNormalized);
-        });
-      }
-      
-      // Log detalhado para debug
-      if (nomesBasesVinculadas.length > 0 && !match) {
-        const primeiroNomeVinculado = nomesBasesVinculadas[0];
-        // Log apenas se for similar (para não poluir o console)
-        if (baseNameNormalized.includes(primeiroNomeVinculado.substring(0, 5)) || 
-            primeiroNomeVinculado.includes(baseNameNormalized.substring(0, 5))) {
-          console.log('🔍 [NovaCampanha] Comparação (sem match):', {
-            baseName,
-            baseNameNormalized,
-            primeiroNomeVinculado,
-            matchExato: baseNameNormalized === primeiroNomeVinculado,
-          });
-        }
-      }
-      
-      if (match) {
-        console.log('✅ [NovaCampanha] Base encontrada:', baseName, '→', baseNameNormalized);
-      }
-      return match;
+      const baseName = String(base?.name || base?.id || '').trim().toLowerCase();
+      return nomesVinculados.includes(baseName);
     });
 
-    console.log('🔵 [NovaCampanha] Bases filtradas:', basesFiltradas.length, 'de', allBases.length);
-    
-    if (basesFiltradas.length === 0 && nomesBasesVinculadas.length > 0) {
-      console.error('🔴 [NovaCampanha] ERRO: Nenhuma base encontrada mesmo com bases vinculadas!');
-      console.error('🔴 [NovaCampanha] Nome da base vinculada esperado:', nomesBasesVinculadas[0]);
-      console.error('🔴 [NovaCampanha] Primeiras 3 bases disponíveis:', allBases.slice(0, 3).map((b: any) => b?.name || b?.id));
-    }
-    
+    console.log('🟢 [NovaCampanha] Bases filtradas:', basesFiltradas.map((b: any) => b?.name || b?.id));
+    console.log('🟢 [NovaCampanha] Total após filtro:', basesFiltradas.length);
+
     return basesFiltradas;
   }, [formData.carteira, basesCarteira, allBases]);
 
@@ -554,21 +507,19 @@ export default function NovaCampanha() {
         {[1, 2, 3, 4].map((s) => (
           <div key={s} className="flex items-center">
             <div
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all ${
-                s === step
+              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all ${s === step
                   ? "gradient-primary text-primary-foreground shadow-glow"
                   : s < step
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                }`}
             >
               {s}
             </div>
             {s < 4 && (
               <div
-                className={`h-1 w-12 sm:w-20 mx-2 rounded-full ${
-                  s < step ? "bg-primary" : "bg-muted"
-                }`}
+                className={`h-1 w-12 sm:w-20 mx-2 rounded-full ${s < step ? "bg-primary" : "bg-muted"
+                  }`}
               />
             )}
           </div>
@@ -660,16 +611,15 @@ export default function NovaCampanha() {
                           console.log('🔵 [NovaCampanha] Base selecionada:', base.id, base.name);
                           setFormData({ ...formData, base: base.id });
                         }}
-                        className={`rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 w-full ${
-                          formData.base === base.id
+                        className={`rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 w-full ${formData.base === base.id
                             ? "border-primary bg-primary/5"
                             : "border-border"
-                        }`}
+                          }`}
                       >
-                        <p 
-                          className="font-semibold text-sm truncate w-full" 
+                        <p
+                          className="font-semibold text-sm truncate w-full"
                           title={base.name}
-                          style={{ 
+                          style={{
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -822,11 +772,10 @@ export default function NovaCampanha() {
                 {providers.map((provider, idx) => (
                   <label
                     key={`provider-${provider.id || idx}`}
-                    className={`flex items-center gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all ${
-                      formData.providers.includes(provider.id)
+                    className={`flex items-center gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all ${formData.providers.includes(provider.id)
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/30"
-                    } ${!provider.available && "opacity-50 cursor-not-allowed"}`}
+                      } ${!provider.available && "opacity-50 cursor-not-allowed"}`}
                   >
                     <Checkbox
                       checked={formData.providers.includes(provider.id)}
@@ -883,8 +832,8 @@ export default function NovaCampanha() {
             Voltar
           </Button>
           {step < 4 ? (
-            <Button 
-              onClick={() => setStep(step + 1)} 
+            <Button
+              onClick={() => setStep(step + 1)}
               disabled={!canGoNext()}
               className="gradient-primary hover:opacity-90"
             >

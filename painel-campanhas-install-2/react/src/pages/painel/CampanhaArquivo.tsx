@@ -86,12 +86,17 @@ export default function CampanhaArquivo() {
   });
 
   // Bases filtradas por carteira
+  // Backend agora retorna array simples de strings: ['base1', 'base2', ...]
   const bases = carteira
     ? (basesCarteira.length > 0
-        ? allBases.filter((base: any) =>
-            basesCarteira.some((bc: any) => bc.nome_base === base.name)
-          )
-        : [])
+      ? allBases.filter((base: any) => {
+        const baseName = (base.name || '').trim().toLowerCase();
+        // basesCarteira agora é array de strings
+        return basesCarteira.some((bc: string) =>
+          bc.trim().toLowerCase() === baseName
+        );
+      })
+      : [])
     : [];
 
   // Verificar atualização da base quando selecionada
@@ -111,7 +116,7 @@ export default function CampanhaArquivo() {
   }, [baseUpdateData]);
 
   const uploadMutation = useMutation({
-    mutationFn: ({ file, matchField }: { file: File; matchField: string }) => 
+    mutationFn: ({ file, matchField }: { file: File; matchField: string }) =>
       uploadCampaignFile(file, matchField),
     onSuccess: (data: any) => {
       setTempId(data.temp_id);
@@ -262,7 +267,7 @@ export default function CampanhaArquivo() {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Formato do arquivo CSV:</strong> O arquivo deve conter as colunas: <strong>nome</strong>, <strong>telefone</strong> (obrigatório: formato 55 + DDD + Número, ex: 5511999999999), <strong>cpf</strong> (obrigatório: pelo menos 11 dígitos). 
+          <strong>Formato do arquivo CSV:</strong> O arquivo deve conter as colunas: <strong>nome</strong>, <strong>telefone</strong> (obrigatório: formato 55 + DDD + Número, ex: 5511999999999), <strong>cpf</strong> (obrigatório: pelo menos 11 dígitos).
           Colunas opcionais: <strong>carteira</strong>, <strong>contrato</strong>, <strong>id_carteira</strong>.
         </AlertDescription>
       </Alert>
@@ -339,8 +344,8 @@ export default function CampanhaArquivo() {
                   <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
                     <AlertCircle className="h-4 w-4" />
                     <p className="text-sm">
-                      {uploadMutation.error instanceof Error 
-                        ? uploadMutation.error.message 
+                      {uploadMutation.error instanceof Error
+                        ? uploadMutation.error.message
                         : "Erro ao validar arquivo"}
                     </p>
                   </div>

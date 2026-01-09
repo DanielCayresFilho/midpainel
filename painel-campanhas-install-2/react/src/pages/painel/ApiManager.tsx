@@ -16,6 +16,8 @@ import {
   saveMicroserviceConfig,
   getStaticCredentials,
   saveStaticCredentials,
+  getOtimaCustomers,
+  listCredentials,
   createCredential,
   getCredential,
   updateCredential,
@@ -53,10 +55,19 @@ export default function ApiManager() {
     sf_password: "",
     sf_token_url: "",
     sf_api_url: "",
+    mkc_client_id: "",
+    mkc_client_secret: "",
+    mkc_token_url: "",
+    mkc_api_url: "",
+    rcs_chave_api: "",
+    rcs_base_url: "",
+    rcs_token: "",
     otima_wpp_token: "",
     otima_wpp_customer_code: "",
+    otima_wpp_broker_code: "",
     otima_rcs_token: "",
     otima_rcs_customer_code: "",
+    dashboard_password: "",
   });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [dynamicCredential, setDynamicCredential] = useState({
@@ -92,7 +103,8 @@ export default function ApiManager() {
 
   useEffect(() => {
     if (staticCredsData) {
-      setStaticCreds({
+      console.log('🔵 [ApiManager] Carregando credenciais do backend:', staticCredsData);
+      const loadedCreds = {
         cda_api_url: staticCredsData.cda_api_url || "",
         cda_api_key: staticCredsData.cda_api_key || "",
         sf_client_id: staticCredsData.sf_client_id || "",
@@ -101,11 +113,22 @@ export default function ApiManager() {
         sf_password: staticCredsData.sf_password || "",
         sf_token_url: staticCredsData.sf_token_url || "",
         sf_api_url: staticCredsData.sf_api_url || "",
+        mkc_client_id: staticCredsData.mkc_client_id || "",
+        mkc_client_secret: staticCredsData.mkc_client_secret || "",
+        mkc_token_url: staticCredsData.mkc_token_url || "",
+        mkc_api_url: staticCredsData.mkc_api_url || "",
+        rcs_chave_api: staticCredsData.rcs_chave_api || "",
+        rcs_base_url: staticCredsData.rcs_base_url || "",
+        rcs_token: staticCredsData.rcs_token || "",
         otima_wpp_token: staticCredsData.otima_wpp_token || "",
         otima_wpp_customer_code: staticCredsData.otima_wpp_customer_code || "",
+        otima_wpp_broker_code: staticCredsData.otima_wpp_broker_code || "",
         otima_rcs_token: staticCredsData.otima_rcs_token || "",
         otima_rcs_customer_code: staticCredsData.otima_rcs_customer_code || "",
-      });
+        dashboard_password: staticCredsData.dashboard_password || "",
+      };
+      console.log('🔵 [ApiManager] Credenciais carregadas no estado:', Object.entries(loadedCreds).filter(([_, v]) => v && v.trim()).map(([k, v]) => `${k}: ${v.substring(0, 10)}...`));
+      setStaticCreds(loadedCreds);
     }
   }, [staticCredsData]);
 
@@ -139,9 +162,16 @@ export default function ApiManager() {
   });
 
   const staticCredsMutation = useMutation({
-    mutationFn: (data: any) => saveStaticCredentials({ static_credentials: data }),
-    onSuccess: () => {
+    mutationFn: (data: any) => {
+      console.log('🔵 [ApiManager] Enviando para API:', data);
+      return saveStaticCredentials({ static_credentials: data });
+    },
+    onSuccess: (response) => {
+      console.log('✅ [ApiManager] Credenciais salvas com sucesso:', response);
       toast({ title: "Credenciais estáticas salvas com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ['static-credentials'] });
+      // Invalida templates para recarregar templates da Ótima se customer_code foi atualizado
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
     },
     onError: (error: any) => {
       toast({
@@ -186,6 +216,8 @@ export default function ApiManager() {
   };
 
   const handleSaveStaticCreds = () => {
+    console.log('🔵 [ApiManager] Salvando credenciais estáticas:', staticCreds);
+    console.log('🔵 [ApiManager] Campos preenchidos:', Object.entries(staticCreds).filter(([_, v]) => v && v.trim()).map(([k]) => k));
     staticCredsMutation.mutate(staticCreds);
   };
 
@@ -242,6 +274,7 @@ export default function ApiManager() {
     })
       .then(() => {
         toast({ title: "Credencial criada com sucesso!" });
+        queryClient.invalidateQueries({ queryKey: ['dynamic-credentials'] });
         setShowCreateDialog(false);
         setDynamicCredential({
           provider: "",
@@ -548,7 +581,58 @@ export default function ApiManager() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label>Customer Code</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Customer Code</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!staticCreds.otima_wpp_token) {
+                        toast({
+                          title: "Token necessário",
+                          description: "Configure o token primeiro para buscar customer codes",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      try {
+                        const customers = await getOtimaCustomers('wpp');
+                        if (Array.isArray(customers) && customers.length > 0) {
+                          // Se houver apenas um, seleciona automaticamente
+                          if (customers.length === 1) {
+                            setStaticCreds({ ...staticCreds, otima_wpp_customer_code: customers[0] });
+                            toast({ title: "Customer code carregado!" });
+                          } else {
+                            // Se houver múltiplos, mostra um select
+                            const selected = prompt(
+                              `Customer codes disponíveis:\n${customers.join('\n')}\n\nDigite o código desejado:`
+                            );
+                            if (selected && customers.includes(selected)) {
+                              setStaticCreds({ ...staticCreds, otima_wpp_customer_code: selected });
+                              toast({ title: "Customer code selecionado!" });
+                            }
+                          }
+                        } else {
+                          toast({
+                            title: "Nenhum customer code encontrado",
+                            description: "Verifique se o token está correto",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (error: any) {
+                        toast({
+                          title: "Erro ao buscar customer codes",
+                          description: error.message || "Erro desconhecido",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Buscar
+                  </Button>
+                </div>
                 <Input
                   value={staticCreds.otima_wpp_customer_code}
                   onChange={(e) =>
@@ -557,7 +641,7 @@ export default function ApiManager() {
                   placeholder="Código do cliente"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Código do cliente para buscar templates HSM
+                  Código do cliente para buscar templates HSM. Use o botão "Buscar" para listar os customer codes disponíveis da API da Ótima. Após salvar, os templates serão carregados automaticamente.
                 </p>
               </div>
             </div>
@@ -596,7 +680,58 @@ export default function ApiManager() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label>Customer Code</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Customer Code</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!staticCreds.otima_rcs_token) {
+                        toast({
+                          title: "Token necessário",
+                          description: "Configure o token primeiro para buscar customer codes",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      try {
+                        const customers = await getOtimaCustomers('rcs');
+                        if (Array.isArray(customers) && customers.length > 0) {
+                          // Se houver apenas um, seleciona automaticamente
+                          if (customers.length === 1) {
+                            setStaticCreds({ ...staticCreds, otima_rcs_customer_code: customers[0] });
+                            toast({ title: "Customer code carregado!" });
+                          } else {
+                            // Se houver múltiplos, mostra um select
+                            const selected = prompt(
+                              `Customer codes disponíveis:\n${customers.join('\n')}\n\nDigite o código desejado:`
+                            );
+                            if (selected && customers.includes(selected)) {
+                              setStaticCreds({ ...staticCreds, otima_rcs_customer_code: selected });
+                              toast({ title: "Customer code selecionado!" });
+                            }
+                          }
+                        } else {
+                          toast({
+                            title: "Nenhum customer code encontrado",
+                            description: "Verifique se o token está correto",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (error: any) {
+                        toast({
+                          title: "Erro ao buscar customer codes",
+                          description: error.message || "Erro desconhecido",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Buscar
+                  </Button>
+                </div>
                 <Input
                   value={staticCreds.otima_rcs_customer_code}
                   onChange={(e) =>
@@ -605,7 +740,7 @@ export default function ApiManager() {
                   placeholder="Código do cliente"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Código do cliente para buscar templates RCS
+                  Código do cliente para buscar templates RCS. Use o botão "Buscar" para listar os customer codes disponíveis da API da Ótima. Após salvar, os templates serão carregados automaticamente.
                 </p>
               </div>
             </div>
@@ -773,10 +908,7 @@ export default function ApiManager() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Use o botão acima para criar novas credenciais dinâmicas. As credenciais são
-            organizadas por provider e Environment ID.
-          </p>
+          <DynamicCredentialsList />
         </CardContent>
       </Card>
 
@@ -802,6 +934,115 @@ export default function ApiManager() {
           <CustomProvidersList />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// Componente para lista de credenciais dinâmicas
+function DynamicCredentialsList() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: credentials, isLoading } = useQuery({
+    queryKey: ['dynamic-credentials'],
+    queryFn: listCredentials,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ provider, envId }: { provider: string; envId: string }) =>
+      deleteCredential(provider, envId),
+    onSuccess: () => {
+      toast({ title: "Credencial deletada com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ['dynamic-credentials'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao deletar",
+        description: error.message || "Erro ao deletar credencial",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (isLoading) {
+    return <Skeleton className="h-20" />;
+  }
+
+  if (!credentials || credentials.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Nenhuma credencial dinâmica criada. Use o botão "Nova Credencial" acima para criar uma.
+      </p>
+    );
+  }
+
+  const getProviderLabel = (provider: string) => {
+    const found = PROVIDERS.find((p) => p.value === provider);
+    return found ? found.label : provider.toUpperCase();
+  };
+
+  return (
+    <div className="space-y-4">
+      {credentials.map((cred: any, index: number) => (
+        <div
+          key={`${cred.provider}-${cred.env_id}-${index}`}
+          className="flex items-center justify-between p-4 border rounded-lg"
+        >
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-semibold">{getProviderLabel(cred.provider)}</h4>
+              <Badge variant="secondary">Env ID: {cred.env_id}</Badge>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              {cred.data?.url && (
+                <p>
+                  <span className="font-medium">URL:</span> {cred.data.url}
+                </p>
+              )}
+              {cred.data?.token && (
+                <p>
+                  <span className="font-medium">Token:</span> ••••••••
+                </p>
+              )}
+              {cred.data?.chave_api && (
+                <p>
+                  <span className="font-medium">Chave API:</span> ••••••••
+                </p>
+              )}
+              {cred.data?.operacao && (
+                <p>
+                  <span className="font-medium">Operação:</span> {cred.data.operacao}
+                </p>
+              )}
+              {cred.data?.automation_id && (
+                <p>
+                  <span className="font-medium">Automation ID:</span> {cred.data.automation_id}
+                </p>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (
+                confirm(
+                  `Tem certeza que deseja deletar a credencial do provider "${getProviderLabel(cred.provider)}" com Environment ID "${cred.env_id}"?`
+                )
+              ) {
+                deleteMutation.mutate({ provider: cred.provider, envId: cred.env_id });
+              }
+            }}
+            disabled={deleteMutation.isPending}
+          >
+            {deleteMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 text-destructive" />
+            )}
+          </Button>
+        </div>
+      ))}
     </div>
   );
 }

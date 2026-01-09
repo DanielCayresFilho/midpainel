@@ -12,15 +12,16 @@ COPY package.json pnpm-lock.yaml ./
 # Force install devDependencies even if NODE_ENV=production
 RUN NODE_ENV=development pnpm install --frozen-lockfile
 
-# Copy Prisma schema
+# Copy Prisma schema (NOT the config file - it causes validation issues)
 COPY prisma ./prisma
-COPY prisma.config.ts ./
-
-# Generate Prisma Client (only once, in builder)
-RUN npx prisma generate
 
 # Copy source code (this changes most frequently)
 COPY . .
+
+# Generate Prisma Client for TypeScript compilation AFTER copying source
+# Use a dummy DATABASE_URL since we only need the types, not a real connection
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+RUN npx prisma generate
 
 # Build the application
 RUN pnpm build
@@ -45,9 +46,6 @@ RUN pnpm add -D prisma@7.0.1 @prisma/config@7.0.1
 # Copy Prisma schema and config
 COPY prisma ./prisma
 COPY prisma.config.ts ./
-
-# Generate Prisma Client in production
-RUN npx prisma generate
 
 # Install pg_isready for health check
 RUN apk add --no-cache postgresql-client
